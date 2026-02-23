@@ -1174,7 +1174,7 @@ function showNoDataMessage(elId, type) {
     ? 'VERİ ALINAMADI'
     : 'İNTERNET BAĞLANTISI YOK';
   const sub     = isOnline
-    ? 'YouTube'a bağlanılamadı. Lütfen tekrar deneyin.'
+    ? "YouTube'a bağlanılamadı. Lütfen tekrar deneyin."
     : 'İnternete bağlanıp tekrar deneyin.';
   const btnText = type === 'video' ? "initVideos()" : "initSongs()";
   el.innerHTML = `
@@ -1687,7 +1687,7 @@ function showDlFormatModal(title, url, ytId, btn) {
 
 function startRealDl(title, url, ytId, type, quality) {
   const tid = 'dl_'+Date.now();
-  const thumbUrl = ytId ? \`https://img.youtube.com/vi/\${ytId}/mqdefault.jpg\` : '';
+  const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '';
   const label = type==='audio' ? '🎵 '+quality.toUpperCase() : '📹 '+quality;
   downloads[tid] = {title, type, pct:0, speed:'...', thumbUrl, mediaType:type, quality};
   updateDlBadge(); renderDlPage();
@@ -2223,43 +2223,21 @@ function addToPlaylist(plId, item) {
 function showAddToPlaylistMenu(item) {
   const allPls = { ...FIXED_PLAYLISTS, ...loadUserPlaylists() };
   const keys = Object.keys(allPls);
-  // Basit seçim toast yerine alert kullan (gelecekte modal yapılabilir)
-  const names = keys.map((k,i) => `${i+1}. ${allPls[k].emoji} ${allPls[k].name}`).join('
-');
-  // HTML modal oluştur
   const existing = document.getElementById('addToPlMenu');
   if (existing) existing.remove();
   const menu = document.createElement('div');
   menu.id = 'addToPlMenu';
-  menu.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;
-    display:flex;align-items:flex-end;`;
+  menu.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;display:flex;align-items:flex-end;';
   menu.innerHTML = `
-    <div style="width:100%;background:var(--bg2);border-top:1px solid var(--border);
-                border-radius:16px 16px 0 0;padding:16px;max-height:70vh;overflow-y:auto;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;
-                  color:var(--white);margin-bottom:14px;text-align:center;">
-        LISTEYE EKLE
-      </div>
+    <div style="width:100%;background:var(--bg2);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;max-height:70vh;overflow-y:auto;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--white);margin-bottom:14px;text-align:center;">LİSTEYE EKLE</div>
       ${keys.map(k => `
-        <div data-plkey="${k}"&#39;")});document.getElementById('addToPlMenu').remove();"
-          style="display:flex;gap:10px;align-items:center;padding:12px 10px;border-radius:8px;
-                 cursor:pointer;border:1px solid transparent;margin-bottom:4px;
-                 transition:var(--tr);"
-          onmousedown="this.style.background='rgba(229,9,20,.1)';this.style.borderColor='var(--border)'">
+        <div data-plkey="${k}" style="display:flex;gap:10px;align-items:center;padding:12px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:4px;transition:var(--tr);">
           <span style="font-size:20px;">${allPls[k].emoji}</span>
-          <span style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);">
-            ${allPls[k].name}
-          </span>
-          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gray);">
-            ${loadPlaylistItems(k).length} öğe
-          </span>
+          <span style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);">${allPls[k].name}</span>
+          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gray);">${loadPlaylistItems(k).length} öğe</span>
         </div>`).join('')}
-      <button onclick="document.getElementById('addToPlMenu').remove()"
-        style="width:100%;padding:12px;border-radius:8px;background:var(--gray2);border:none;
-               cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:16px;
-               letter-spacing:2px;color:var(--text);margin-top:6px;">
-        İPTAL
-      </button>
+      <button onclick="document.getElementById('addToPlMenu').remove()" style="width:100%;padding:12px;border-radius:8px;background:var(--bg3);border:none;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text);margin-top:6px;">İPTAL</button>
     </div>`;
   document.body.appendChild(menu);
   menu.querySelectorAll('[data-plkey]').forEach(btn => {
@@ -2270,7 +2248,9 @@ function showAddToPlaylistMenu(item) {
       if(m) m.remove();
     });
   });
+  menu.addEventListener('click', e => { if(e.target === menu) menu.remove(); });
 }
+
 
 // ── Çalma listesi oluşturma ──────────────────────
 const EMOJIS = ['🎵','🎬','⭐','🔥','🎸','🎤','💫','🌙','🎹','🎺','🏆','❤️','🎮','🎧','🌊'];
@@ -2281,7 +2261,7 @@ function openCreatePlaylistModal() {
   selectedEmoji = '🎵';
   // Emoji picker'ı doldur
   const picker = document.getElementById('plEmojiPicker');
-  picker.innerHTML = '<span style="font-size:11px;font-family:'Share Tech Mono',monospace;color:var(--gray);width:100%;">İKON SEÇ:</span>'
+  picker.innerHTML = '<span style="font-size:11px;font-family:"Share Tech Mono",monospace;color:var(--gray);width:100%;">İKON SEÇ:</span>'
     + EMOJIS.map(e => `
       <span onclick="selectEmoji('${e}',this)"
         style="font-size:22px;cursor:pointer;padding:5px;border-radius:6px;
