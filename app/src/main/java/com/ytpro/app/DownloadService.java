@@ -81,11 +81,8 @@ public class DownloadService extends Service {
 
     // ── İndirme işlemi ──
     private void runDownload(String url, String quality, String type, String title, String taskId) {
-        // İndirme klasörü: /storage/emulated/0/Downloads/YT-PRO/
-        File dlDir = new File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            "YT-PRO"
-        );
+        File root = new File(Environment.getExternalStorageDirectory(), "YT-PRO");
+        File dlDir = new File(root, type.equals("audio") ? "MUSIC" : "VIDEOS");
         dlDir.mkdirs();
 
         String formatArg;

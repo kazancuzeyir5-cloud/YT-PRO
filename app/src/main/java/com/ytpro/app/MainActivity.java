@@ -214,6 +214,19 @@ public class MainActivity extends AppCompatActivity {
         YTPROBridge(Activity a) { this.activity = a; }
 
         @JavascriptInterface
+        public void savePref(String key, String val) {
+            android.content.SharedPreferences prefs = activity.getSharedPreferences("ytpro_prefs", Context.MODE_PRIVATE);
+            prefs.edit().putString(key, val).apply();
+            android.util.Log.d("YTPROBridge", "Saved pref: " + key + " = " + val);
+        }
+
+        @JavascriptInterface
+        public String getPref(String key, String def) {
+            android.content.SharedPreferences prefs = activity.getSharedPreferences("ytpro_prefs", Context.MODE_PRIVATE);
+            return prefs.getString(key, def);
+        }
+
+        @JavascriptInterface
         public void fetchTrendingVideos(String query, String cb) {
             executor.execute(() -> {
                 try {
@@ -410,8 +423,10 @@ public class MainActivity extends AppCompatActivity {
                     java.io.InputStream input = new java.io.BufferedInputStream(
                         conn.getInputStream(), 131072);
 
-                    java.io.File dir = Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS);
+                    java.io.File root = new java.io.File(Environment.getExternalStorageDirectory(), "YT-PRO");
+                    java.io.File dir = new java.io.File(root, (type.equals("audio") || type.equals("mp3")) ? "MUSIC" : "VIDEOS");
+                    if (!dir.exists()) dir.mkdirs();
+
                     String safeTitle = title.replaceAll("[\\\\/:*?\"<>|]", "_");
                     java.io.File file = new java.io.File(dir, safeTitle + ext);
                     java.io.OutputStream output = new java.io.FileOutputStream(file);
@@ -512,12 +527,14 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void openDownloadsFolder() {
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            Uri uri = Uri.parse(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS).toURI().toString());
-            intent.setDataAndType(uri, "*/*");
             try {
-                activity.startActivity(intent);
+                File dir = new File(Environment.getExternalStorageDirectory(), "YT-PRO");
+                if (!dir.exists()) dir.mkdirs();
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                Uri uri = Uri.parse(dir.toURI().toString());
+                intent.setDataAndType(uri, "*/*");
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                activity.startActivity(Intent.createChooser(intent, "Dosya Yöneticisi Seç"));
             } catch (Exception e) {
                 runOnUiThread(() -> Toast.makeText(
                     activity, "Dosya yöneticisi bulunamadı", Toast.LENGTH_SHORT).show());

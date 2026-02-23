@@ -254,7 +254,7 @@ body{
 .f-btn:active{transform:scale(.95);}
 
 /* ══ LIST AREA ══ */
-.list-area{flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:0 10px 80px;touch-action:pan-y;overscroll-behavior:contain;}
+.list-area{flex:1;height:0;min-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 10px 80px;touch-action:pan-y;overscroll-behavior:contain;}
 .list-area::-webkit-scrollbar{width:3px;}
 .list-area::-webkit-scrollbar-thumb{background:var(--accent);border-radius:2px;}
 
@@ -1364,7 +1364,10 @@ function playMedia(type, idx) {
   const m = list[idx];
   currentMedia = { ...m, mediaType: type };
   
-  document.getElementById('playerTitle').textContent = m.title || m.t;
+  document.getElementById('playerTitle').textContent = 'Yükleniyor...';
+  // Bir sonraki şarkı preload için kontrol bayrağı sıfırla
+  window._preloadTriggered = false;
+  if (typeof window._dummyCb === 'undefined') window._dummyCb = function(){};
   document.getElementById('playerArtist').textContent = m.channel || m.a || m.artist || 'Bilinmiyor';
   document.getElementById('totTime').textContent = m.duration || m.dur || '0:00';
   
@@ -1389,6 +1392,7 @@ function playMedia(type, idx) {
     const cbName = '_play_' + Date.now();
     window[cbName] = function(info) {
       delete window[cbName];
+      document.getElementById('playerTitle').textContent = m.title || m.t;
       if (!info) { showToast('⚠ Stream alınamadı'); setPlay(false); return; }
       // Video için ses+video birleşik URL (360p/720p), ses için en iyi audio URL
       let streamUrl = '';
@@ -1424,8 +1428,26 @@ function playMedia(type, idx) {
         const cur = Math.floor(audio.currentTime);
         document.getElementById('curTime').textContent =
           Math.floor(cur/60) + ':' + String(cur%60).padStart(2,'0');
+
+        // Gelecek şarkıyı arka planda meta-data olarak önbelleğe alma (preload)
+        if (!window._preloadTriggered && (audio.duration - audio.currentTime < 10)) {
+          window._preloadTriggered = true;
+          let nIdx = shuffleMode ? Math.floor(Math.random() * list.length) : (curTrackIdx + 1) % list.length;
+          let nM = list[nIdx];
+          if (nM && typeof YTPROAndroid !== 'undefined') {
+            let nUrl = nM.url || ('https://youtube.com/watch?v=' + (nM.ytId || nM.id || ''));
+            YTPROAndroid.getPreviewUrl(nUrl, '_dummyCb');
+          }
+        }
       };
-      audio.onended = () => { if(repeatMode===2){audio.currentTime=0;audio.play().catch(()=>{});}else{setPlay(false);nextTrack();} };
+      audio.onended = () => { 
+        if(repeatMode === 2) { 
+          audio.currentTime = 0; 
+          audio.play().catch(()=>{}); 
+        } else { 
+          nextTrack(); 
+        } 
+      };
     };
     YTPROAndroid.getPreviewUrl(videoUrl, cbName);
   }
@@ -1533,8 +1555,12 @@ function nextTrack(){
   if (!list.length) return;
   if (repeatMode === 2) { playMedia(currentMedia.mediaType, curTrackIdx); return; }
   let next;
-  if (shuffleMode) next = Math.floor(Math.random() * list.length);
-  else next = (curTrackIdx + 1) % list.length;
+  // Eğer Karışık Çalma (shuffleMode) aktifse, listeden rastgele bir index seç
+  if (shuffleMode === true) {
+    next = Math.floor(Math.random() * list.length);
+  } else {
+    next = (curTrackIdx + 1) % list.length;
+  }
   playMedia(currentMedia.mediaType, next);
 }
 function prevTrack(){
@@ -1961,8 +1987,24 @@ function setupSlider(el, fn){
 // ══════════════════════════════════════════
 const FIXED_PLAYLISTS = { 'favoriler': { name:'Favoriler', emoji:'⭐', fixed:true }, 'muzik-mix': { name:'Müzik Mix', emoji:'🎵', fixed:true }, 'sinema': { name:'Sinema', emoji:'🎬', fixed:true } };
 window.__store = {};
-function _storeSave(key, val) { window.__store[key] = val; try { localStorage.setItem(key, val); } catch(e) {} }
-function _storeLoad(key, def) { if (window.__store[key] !== undefined) return window.__store[key]; try { const v = localStorage.getItem(key); if (v !== null) { window.__store[key] = v; return v; } } catch(e) {} return def; }
+function _storeSave(key, val) {
+  window.__store[key] = val;
+  if (typeof YTPROAndroid !== 'undefined' && typeof YTPROAndroid.savePref === 'function') {
+    YTPROAndroid.savePref(key, String(val));
+  } else {
+    try { localStorage.setItem(key, val); } catch(e) {}
+  }
+}
+function _storeLoad(key, def) {
+  if (window.__store[key] !== undefined) return window.__store[key];
+  if (typeof YTPROAndroid !== 'undefined' && typeof YTPROAndroid.getPref === 'function') {
+    const v = YTPROAndroid.getPref(key, "");
+    if (v && v !== "") { window.__store[key] = v; return v; }
+  } else {
+    try { const v = localStorage.getItem(key); if (v !== null) { window.__store[key] = v; return v; } } catch(e) {}
+  }
+  return def;
+}
 function loadUserPlaylists() { try { return JSON.parse(_storeLoad('ytpro_playlists', '{}')); } catch(e) { return {}; } }
 function saveUserPlaylists(data) { _storeSave('ytpro_playlists', JSON.stringify(data)); }
 function loadPlaylistItems(plId) { try { return JSON.parse(_storeLoad('ytpro_pl_' + plId, '[]')); } catch(e) { return []; } }
@@ -2106,6 +2148,16 @@ function applyTheme(name, btn) { document.documentElement.setAttribute('data-the
 function toggleDark(){ const isDark = document.documentElement.getAttribute('data-theme') !== 'light'; applyTheme(isDark ? 'light' : 'dark', null); document.getElementById('darkToggle').classList.toggle('on', isDark); }
 window.addEventListener('load',()=>{
   const savedTheme = _storeLoad('ytpro_theme', 'dark'); if(savedTheme) applyTheme(savedTheme, null);
+
+  // Kayıtlı liste yoksa varsayılan listeleri (Popüler, Favoriler vb.) otomatik oluşturan kontrol
+  const pLists = loadUserPlaylists();
+  if (!pLists || Object.keys(pLists).length === 0) {
+      saveUserPlaylists({
+        'pl_populer': { name: 'Popüler', emoji: '🔥' },
+        'pl_favoriler': { name: 'Favoriler', emoji: '⭐' }
+      });
+  }
+
   initVideos(); initSongs(); renderUserPlaylistsInDrawer();
   addSwipeToDismiss('dlPage', closeDlPage);
   addSwipeToDismiss('plPage', closePlPage);
