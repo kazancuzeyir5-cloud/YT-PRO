@@ -94,6 +94,34 @@
   --text:#f0fff0; --text2:#a0d8a0; --gray:#408040;
   --accent:var(--red); --accent2:var(--red2);
 }
+  [data-theme="slate"] {
+  --bg:#1a1f22; --bg2:#222a2e; --bg3:#2a3238;
+  --red:#607d8b; --red2:#90a4ae; --red-glow:rgba(96,125,139,0.3);
+  --card:#1e2528; --gray2:#2a3238; --border:rgba(96,125,139,0.25);
+  --text:#eceff1; --text2:#b0bec5; --gray:#607d8b;
+  --accent:var(--red); --accent2:var(--red2);
+}
+  [data-theme="rose"] {
+  --bg:#1a0a10; --bg2:#220d16; --bg3:#2d1020;
+  --red:#ff6584; --red2:#ff9a9e; --red-glow:rgba(255,101,132,0.35);
+  --card:#1e0d14; --gray2:#2d1020; --border:rgba(255,101,132,0.2);
+  --text:#fff0f4; --text2:#ffb3c6; --gray:#c06080;
+  --accent:var(--red); --accent2:var(--red2);
+}
+  [data-theme="cyber"] {
+  --bg:#0a001a; --bg2:#0d0020; --bg3:#120028;
+  --red:#ff00ff; --red2:#00ffff; --red-glow:rgba(255,0,255,0.3);
+  --card:#0d0020; --gray2:#1a0030; --border:rgba(255,0,255,0.25);
+  --text:#f0e0ff; --text2:#c080ff; --gray:#8040a0;
+  --accent:var(--red); --accent2:var(--red2);
+}
+  [data-theme="midnight"] {
+  --bg:#0f0c18; --bg2:#1a1428; --bg3:#221c35;
+  --red:#d76d77; --red2:#ffaf7b; --red-glow:rgba(215,109,119,0.3);
+  --card:#16112a; --gray2:#221c35; --border:rgba(215,109,119,0.2);
+  --text:#fff0f8; --text2:#e0b0d0; --gray:#907090;
+  --accent:var(--red); --accent2:var(--red2);
+}
 
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 
@@ -192,6 +220,7 @@ body{
 .main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
 .tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden;}
 .tab-panel.active{display:flex;animation:panelin .3s ease;}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes panelin{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 
 /* ══ FILTER BAR ══ */
@@ -273,7 +302,17 @@ body{
   cursor:pointer;color:var(--gray);
   display:flex;align-items:center;justify-content:center;
   transition:transform 0.15s, color 0.15s, border 0.15s;flex-shrink:0;
+  position:relative;overflow:hidden;
 }
+.dl-btn.downloading { border-color:var(--accent); color:var(--accent); cursor:default; }
+.dl-btn.done-dl { border-color:#00c853; color:#00c853; background:rgba(0,200,83,.1); }
+.dl-btn .dl-progress-ring { position:absolute;inset:0;display:none;align-items:center;justify-content:center; }
+.dl-btn.downloading .dl-progress-ring { display:flex; }
+.dl-btn.downloading .dl-icon { display:none; }
+.dl-btn.done-dl .dl-icon { display:none; }
+.dl-btn.done-dl .dl-done-icon { display:block !important; }
+.ring-bg { stroke:var(--gray2); }
+.ring-fill { stroke:var(--accent); transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset 0.4s ease; }
 .dl-btn svg{width:16px;height:16px;}
 .dl-btn:active{
   border-color:var(--accent);color:var(--accent);
@@ -532,8 +571,8 @@ body{
 .version-pill span:last-child{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gray);}
 
 /* PLAYLIST PANEL */
-.pl-panel{display:none;position:fixed;bottom:68px;left:12px;width:260px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 -6px 30px rgba(0,0,0,.8);z-index:500;max-height:55vh;overflow-y:auto;}
-.pl-panel.visible{display:block;animation:slideleft var(--tr);}
+.pl-panel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1500;align-items:flex-end;}
+.pl-panel.visible{display:flex;animation:fadeIn .2s ease;}
 @keyframes slideleft{from{opacity:0;transform:translateX(-14px);}to{opacity:1;transform:translateX(0);}}
 .pl-panel::-webkit-scrollbar{width:3px;} .pl-panel::-webkit-scrollbar-thumb{background:var(--accent);}
 .panel-head{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:3px;color:var(--white);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
@@ -685,8 +724,7 @@ body{
 <div class="player-panel" id="playerPanel">
   <div class="drag-handle"></div>
   <button class="player-close" onclick="togglePlayer()">✕</button>
-  <button id="playerMenuBtn" onclick="showPlayerMenu()" style="position:absolute;top:10px;right:44px;background:none;border:none;cursor:pointer;color:var(--gray);font-size:22px;line-height:1;padding:2px 8px;border-radius:6px;transition:color 0.15s;" onmouseenter="this.style.color='var(--white)'" onmouseleave="this.style.color='var(--gray)'">⋮</button>
-  
+
   <div class="player-now">
     <div class="player-art-wrap" id="playerArtWrap">
       <img id="playerArtImg" src="" style="display:none;">
@@ -694,6 +732,22 @@ body{
     <div class="player-info">
       <div class="player-title" id="playerTitle">Bir şarkı seç</div>
       <div class="player-artist" id="playerArtist">YT-PRO PLAYER</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;align-items:center;flex-shrink:0;margin-left:6px;">
+      <button id="playerFavBtn" onclick="addCurrentToFavorites()" title="Favorilere Ekle"
+        style="width:36px;height:36px;border-radius:50%;border:1px solid var(--gray2);background:none;cursor:pointer;
+               color:var(--gray);font-size:20px;display:flex;align-items:center;justify-content:center;
+               transition:all 0.2s;line-height:1;">♡</button>
+      <button id="playerDlBtn" onclick="downloadCurrentMedia(this)" title="İndir"
+        style="width:36px;height:36px;border-radius:50%;border:1px solid var(--gray2);background:none;cursor:pointer;
+               color:var(--gray);display:flex;align-items:center;justify-content:center;
+               transition:all 0.2s;position:relative;overflow:hidden;">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="dl-icon" width="16" height="16"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor" class="dl-done-icon" width="16" height="16" style="display:none"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+        <div class="dl-progress-ring" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 28 28" width="28" height="28"><circle class="ring-bg" cx="14" cy="14" r="11" fill="none" stroke-width="2.5"/><circle class="ring-fill" cx="14" cy="14" r="11" fill="none" stroke-width="2.5" stroke-dasharray="69.1" stroke-dashoffset="69.1"/></svg>
+        </div>
+      </button>
     </div>
   </div>
   
@@ -778,12 +832,14 @@ body{
   <div class="dl-page-body" id="dlPageBody"></div>
 </div>
 
-<div class="pl-panel" id="plPanel">
-  <div class="panel-head">
-    <span>ÇALMA LİSTESİ</span>
-    <button class="panel-close" onclick="togglePlaylist()">✕</button>
+<div class="pl-panel" id="plPanel" onclick="if(event.target===this)togglePlaylist()">
+  <div style="width:100%;background:var(--bg2);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;max-height:70vh;overflow-y:auto;">
+    <div class="panel-head">
+      <span>ÇALMA LİSTESİ</span>
+      <button class="panel-close" onclick="togglePlaylist()">✕</button>
+    </div>
+    <div id="plList"></div>
   </div>
-  <div id="plList"></div>
 </div>
 
 <div class="modal-overlay" id="settingsModal">
@@ -844,6 +900,22 @@ body{
         <button class="theme-btn" onclick="applyTheme('neon',this)">
           <div class="theme-dot" style="background:linear-gradient(135deg,#39ff14,#000000)"></div>
           <div class="theme-name">NEON</div>
+        </button>
+        <button class="theme-btn" onclick="applyTheme('slate',this)">
+          <div class="theme-dot" style="background:linear-gradient(135deg,#607d8b,#1a1f22)"></div>
+          <div class="theme-name">ÇELİK</div>
+        </button>
+        <button class="theme-btn" onclick="applyTheme('rose',this)">
+          <div class="theme-dot" style="background:linear-gradient(135deg,#ff6584,#ff9a9e)"></div>
+          <div class="theme-name">GÜL</div>
+        </button>
+        <button class="theme-btn" onclick="applyTheme('cyber',this)">
+          <div class="theme-dot" style="background:linear-gradient(135deg,#ff00ff,#00ffff)"></div>
+          <div class="theme-name">CYBER</div>
+        </button>
+        <button class="theme-btn" onclick="applyTheme('midnight',this)">
+          <div class="theme-dot" style="background:linear-gradient(135deg,#3a1c71,#d76d77,#ffaf7b)"></div>
+          <div class="theme-name">GECEYARıSı</div>
         </button>
       </div>
 
@@ -1007,14 +1079,7 @@ function renderVideoCard(v, i) {
       <div class="video-title">${v.title}</div>
       <div class="video-meta">${v.channel}</div>
     </div>
-    <div class="video-actions">
-      <button class="dl-btn" onclick="event.stopPropagation();showAddToPlaylistMenu({title:'${ttl}',ytId:'${tid}',thumb:'${thumbSrc}',channel:'${tch}',type:'video'})">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      </button>
-      <button class="dl-btn" onclick="event.stopPropagation();startRealDl('${ttl}','${turl}','${tid}','video','1080p')">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-      </button>
-    </div>
+
   </div>`;
 }
 
@@ -1027,20 +1092,13 @@ function renderSongCard(s, i) {
   const thumbSrc = s.thumb || (tid ? `https://img.youtube.com/vi/${tid}/mqdefault.jpg` : '');
   return `
   <div class="song-card" onclick="playMedia('song', ${i})">
-    <div class="song-num">${String(i+1).padStart(2,'0')}</div>
+
     <div class="song-art"><img src="${thumbSrc}" loading="lazy"></div>
     <div class="song-info">
       <div class="song-title">${ttl}</div>
       <div class="song-artist">${tart} · ${talb}</div>
     </div>
-    <div class="song-actions">
-      <button class="dl-btn" onclick="event.stopPropagation();showAddToPlaylistMenu({title:'${ttl}',ytId:'${tid}',thumb:'${thumbSrc}',channel:'${tart}',type:'song'})">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      </button>
-      <button class="dl-btn" onclick="event.stopPropagation();startRealDl('${ttl}','${turl}','${tid}','audio','mp3')">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-      </button>
-    </div>
+
   </div>`;
 }
 
@@ -1158,6 +1216,12 @@ function playMedia(type, idx) {
 
   playerPanelEl.classList.add('visible');
   setPlay(true);
+
+  // Kalp ve indirme butonunu sıfırla
+  const favBtn = document.getElementById('playerFavBtn');
+  if (favBtn) { favBtn.textContent = '♡'; favBtn.style.color = ''; favBtn.style.borderColor = ''; }
+  const dlBtn = document.getElementById('playerDlBtn');
+  if (dlBtn) { dlBtn.classList.remove('downloading','done-dl'); const ri = dlBtn.querySelector('.ring-fill'); if(ri) ri.style.strokeDashoffset='69.1'; dlBtn.querySelector('.dl-done-icon').style.display='none'; dlBtn.querySelector('.dl-icon').style.display=''; dlBtn.querySelector('.dl-progress-ring').style.display='none'; }
 }
 
 function setPlay(v){
@@ -1247,6 +1311,55 @@ function startRealDl(title, url, ytId, type, quality) {
   }
 }
 
+// ══ İNDİRME PROGRESS ANİMASYONU ══
+function startDlWithProgress(title, url, ytId, type, quality, btn) {
+  if (btn.classList.contains('downloading') || btn.classList.contains('done-dl')) return;
+  btn.classList.add('downloading');
+  // Ring'i bul
+  const ringFill = btn.querySelector('.ring-fill');
+  const circumference = 69.1;
+  let pct = 0;
+  const interval = setInterval(() => {
+    pct += Math.random() * 8 + 2;
+    if (pct >= 100) { pct = 100; clearInterval(interval); }
+    const offset = circumference - (pct / 100) * circumference;
+    if (ringFill) ringFill.style.strokeDashoffset = offset;
+    if (pct >= 100) {
+      setTimeout(() => {
+        btn.classList.remove('downloading');
+        btn.classList.add('done-dl');
+      }, 300);
+    }
+  }, 400);
+  startRealDl(title, url, ytId, type, quality);
+}
+
+// ══ PLAYER KALP & İNDİRME BUTONLARI ══
+function addCurrentToFavorites() {
+  if (!currentMedia) { showToast('Önce bir şarkı seç'); return; }
+  const item = {
+    title: currentMedia.title || currentMedia.t || 'Bilinmiyor',
+    ytId: currentMedia.ytId || currentMedia.id || '',
+    thumb: currentMedia.thumb || '',
+    channel: currentMedia.channel || currentMedia.a || currentMedia.artist || '',
+    type: currentMedia.mediaType || 'song'
+  };
+  addToPlaylist('favoriler', item);
+  const btn = document.getElementById('playerFavBtn');
+  if (btn) { btn.textContent = '♥'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; }
+}
+
+function downloadCurrentMedia(btn) {
+  if (!currentMedia) { showToast('Önce bir şarkı seç'); return; }
+  if (btn.classList.contains('downloading') || btn.classList.contains('done-dl')) return;
+  const title = currentMedia.title || currentMedia.t || 'İndirilen';
+  const url = currentMedia.url || '';
+  const ytId = currentMedia.ytId || currentMedia.id || '';
+  const type = currentMedia.mediaType === 'video' ? 'video' : 'audio';
+  const quality = type === 'video' ? '1080p' : 'mp3';
+  startDlWithProgress(title, url, ytId, type, quality, btn);
+}
+
 // ══ GENEL ARAÇLAR ══
 function switchTab(t) { document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); document.getElementById('tab-'+t).classList.add('active'); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active')); document.getElementById('panel-'+t).classList.add('active'); }
 function openUrlModal(){ document.getElementById('urlModal').classList.add('show'); }
@@ -1260,17 +1373,48 @@ function closeDrawer(){ document.getElementById('drawer').classList.remove('open
 function openDlPage(){ closeDrawer(); document.getElementById('dlPage').classList.add('visible'); renderDlPage(); }
 function closeDlPage(){ document.getElementById('dlPage').classList.remove('visible'); }
 function renderDlPage(){
-  const keys=Object.keys(downloads); document.getElementById('dlPageCount').textContent=keys.length+' öğe'; document.getElementById('dlBadge').textContent=keys.length; const body=document.getElementById('dlPageBody');
-  if(keys.length===0){ body.innerHTML=`<div class="dl-empty"><div class="dl-empty-icon">📂</div><div class="dl-empty-title">İNDİRME YOK</div><div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gray);margin-top:6px;">Henüz hiç indirme yapılmadı</div></div>`; return; }
+  const keys=Object.keys(downloads);
+  document.getElementById('dlPageCount').textContent=keys.length+' öğe';
+  document.getElementById('dlBadge').textContent=keys.length;
+  const body=document.getElementById('dlPageBody');
+  if(keys.length===0){
+    body.innerHTML=`<div class="dl-empty"><div class="dl-empty-icon">📂</div><div class="dl-empty-title">İNDİRME YOK</div><div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gray);margin-top:6px;">Henüz hiç indirme yapılmadı</div></div>`;
+    return;
+  }
   body.innerHTML=keys.map(id=>{
-    const d=downloads[id]; const done=d.pct>=100;
+    const d=downloads[id]; const done=d.pct>=100; const failed=d.pct<0;
+    const statusText = failed ? '✗ BAŞARISIZ' : done ? '✔ TAMAMLANDI' : '⬇ İNDİRİLİYOR...';
+    const statusClass = failed ? 'failed' : done ? 'done' : '';
+    const barColor = failed ? '#ff5555' : done ? '#00c853' : 'var(--accent)';
     const actionBtns = done
-      ? `<button onclick="openDlFolder('${id}')" title="Klasörde Göster" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--gray2);background:none;cursor:pointer;color:var(--gray);font-size:16px;display:flex;align-items:center;justify-content:center;transition:color 0.15s,border 0.15s;" onmouseenter="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseleave="this.style.color='var(--gray)';this.style.borderColor='var(--gray2)'">📁</button>
-         <button onclick="deleteDl('${id}')" title="Sil" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--gray2);background:none;cursor:pointer;color:#ff5555;font-size:16px;display:flex;align-items:center;justify-content:center;transition:border 0.15s;" onmouseenter="this.style.borderColor='#ff5555'" onmouseleave="this.style.borderColor='var(--gray2)'">🗑</button>`
-      : `<button class="dl-cancel-btn" onclick="cancelDl('${id}')" title="İptal Et">✕</button>`;
-    return `<div class="dl-full-item"><div class="dl-full-header"><div class="dl-full-thumb"><img src="${d.thumbUrl}" onerror="this.style.display='none'"></div><div class="dl-full-info"><div class="dl-full-title">${d.title}</div><div class="dl-full-meta">${d.type}</div></div><div style="display:flex;gap:4px;flex-shrink:0;">${actionBtns}</div></div><div class="dl-bar-wrap"><div class="dl-bar-track"><div class="dl-bar-fill" style="width:${d.pct}%"></div></div></div><div class="dl-stats"><span class="dl-pct">${d.pct}%</span><span class="dl-status ${done?'done':''}">${done?'✔ TAMAMLANDI':'⬇ İNDİRİLİYOR'}</span></div></div>`;
+      ? `<button onclick="openDlFolder('${id}')" title="Klasörde Göster" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--gray2);background:none;cursor:pointer;color:var(--gray);font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">📁</button>
+         <button onclick="deleteDl('${id}')" title="Sil" style="width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,85,85,.4);background:rgba(255,85,85,.08);cursor:pointer;color:#ff5555;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">🗑</button>`
+      : failed
+      ? `<button onclick="deleteDl('${id}')" title="Kaldır" style="width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,85,85,.4);background:rgba(255,85,85,.08);cursor:pointer;color:#ff5555;font-size:17px;display:flex;align-items:center;justify-content:center;">🗑</button>`
+      : `<button onclick="cancelDl('${id}')" title="İptal" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--gray2);background:none;cursor:pointer;color:var(--gray);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;letter-spacing:1px;">İPTAL</button>`;
+    const pctDisplay = failed ? '—' : d.pct+'%';
+    const speedDisplay = done ? '' : `<span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gray);margin-left:auto;">${d.speed||''}</span>`;
+    return `<div class="dl-full-item" style="${done?'border-color:rgba(0,200,83,.2);':failed?'border-color:rgba(255,85,85,.2);':''}">
+      <div class="dl-full-header">
+        <div class="dl-full-thumb"><img src="${d.thumbUrl}" onerror="this.style.display='none'"></div>
+        <div class="dl-full-info">
+          <div class="dl-full-title">${d.title}</div>
+          <div class="dl-full-meta">${d.type}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;">${actionBtns}</div>
+      </div>
+      <div class="dl-bar-wrap">
+        <div class="dl-bar-track"><div class="dl-bar-fill" style="width:${Math.max(0,d.pct)}%;background:${barColor};"></div></div>
+      </div>
+      <div class="dl-stats">
+        <span class="dl-pct" style="${done?'color:#00c853':failed?'color:#ff5555':''}">${pctDisplay}</span>
+        ${speedDisplay}
+        <span class="dl-status ${statusClass}">${statusText}</span>
+      </div>
+    </div>`;
   }).join('');
 }
+
 function cancelDl(id){ delete downloads[id]; renderDlPage(); updateDlBadge(); showToast('İndirme iptal edildi'); }
 function deleteDl(id){ delete downloads[id]; renderDlPage(); updateDlBadge(); showToast('🗑 Kaldırıldı'); }
 function openDlFolder(id){ try{ if(typeof YTPROAndroid!=='undefined') YTPROAndroid.openDownloadsFolder(); else showToast('📁 İndirilenler klasörü'); }catch(e){ showToast('📁 Klasör açılamadı'); } }
