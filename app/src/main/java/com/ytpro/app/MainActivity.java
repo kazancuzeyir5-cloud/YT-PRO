@@ -476,6 +476,40 @@ public class MainActivity extends AppCompatActivity {
             }).start();
         }
 
+        // Dosyayı sistem medya oynatıcısıyla aç
+        @JavascriptInterface
+        public void openFile(final String filePath) {
+            try {
+                File file = new File(filePath);
+                if (!file.exists()) {
+                    runOnUiThread(() -> Toast.makeText(activity, "Dosya bulunamadı", Toast.LENGTH_SHORT).show());
+                    return;
+                }
+                String mimeType = filePath.endsWith(".mp4") || filePath.endsWith(".mkv") ? "video/*" : "audio/*";
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                        activity, activity.getPackageName() + ".provider", file);
+                    intent.setDataAndType(uri, mimeType);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } else {
+                    intent.setDataAndType(Uri.fromFile(file), mimeType);
+                }
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                activity.startActivity(Intent.createChooser(intent, "Aç"));
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(activity, "Açılamadı: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+        }
+
+        // Arka plan oynatma kontrolü
+        @JavascriptInterface
+        public void setBgPlay(boolean enabled) {
+            if (mediaServiceBound && mediaService != null) {
+                // MediaService'e ilet (ileride implemente edilebilir)
+            }
+        }
+
         // İndirilenler klasörünü aç
         @JavascriptInterface
         public void openDownloadsFolder() {
