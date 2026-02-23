@@ -6,11 +6,12 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // ÇAKILMAYI ÖNLEYEN KISIM BURASI (PREFER_SETTINGS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } // NewPipe eklentisi için şart
+        maven { url 'https://jitpack.io' }
     }
 }
 rootProject.name = "YT-PRO"
