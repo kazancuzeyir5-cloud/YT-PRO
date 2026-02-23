@@ -604,6 +604,20 @@ body{
 .pl-icon{width:34px;height:34px;border-radius:6px;background:linear-gradient(135deg,var(--accent),#330000);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
 .pl-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pl-count{font-size:10px;color:var(--gray);font-family:'Share Tech Mono',monospace;}
+
+/* Pull to Refresh */
+#pullIndicator {
+  position:fixed;top:-60px;left:50%;transform:translateX(-50%);
+  width:44px;height:44px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;z-index:999;
+  transition:top 0.3s ease;
+  box-shadow:0 4px 16px var(--red-glow);
+}
+#pullIndicator.visible { top:14px; }
+#pullIndicator.spinning svg { animation:spin 0.7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -743,6 +757,7 @@ body{
   </button>
 </div>
 
+<div id="pullIndicator"><svg viewBox="0 0 24 24" fill="white" width="22" height="22"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></div>
 <div class="player-panel" id="playerPanel">
   <div class="drag-handle"></div>
 
@@ -1012,6 +1027,30 @@ body{
         <div><div class="s-label">Arka Plan Oynatma</div><div class="s-sub">Ekran kapalıyken çal</div></div>
         <button class="toggle on" id="bgPlayToggle" onclick="this.classList.toggle('on');setBgPlay(this.classList.contains('on'))"></button>
       </div>
+      <div class="setting-row">
+        <div><div class="s-label">Oynatma Hızı</div><div class="s-sub">Normal, hızlı veya yavaş</div></div>
+        <select class="select-wrap" id="playbackSpeed" onchange="setPlaybackSpeed(this.value)">
+          <option value="0.5">0.5x Yavaş</option><option value="0.75">0.75x</option>
+          <option value="1" selected>1x Normal</option><option value="1.25">1.25x</option>
+          <option value="1.5">1.5x Hızlı</option><option value="2">2x Çok Hızlı</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div><div class="s-label">Ses Kalitesi</div><div class="s-sub">Stream kalitesi</div></div>
+        <select class="select-wrap" id="audioQuality" onchange="_storeSave('ytpro_aq',this.value)">
+          <option value="high" selected>Yüksek</option>
+          <option value="medium">Orta</option>
+          <option value="low">Düşük (Veri Tasarrufu)</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div><div class="s-label">Otomatik Sıradaki</div><div class="s-sub">Şarkı bitince devam et</div></div>
+        <button class="toggle on" id="autoPlayToggle" onclick="this.classList.toggle('on')"></button>
+      </div>
+      <div class="setting-row">
+        <div><div class="s-label">Ekolayzer</div><div class="s-sub">Bas güçlendir</div></div>
+        <button class="toggle" id="eqToggle" onclick="this.classList.toggle('on')"></button>
+      </div>
 
       <div style="display:flex;justify-content:center;padding-top:4px;">
         <div class="version-pill"><span>YT-PRO</span><span>v2.4.1 · build 2406</span></div>
@@ -1170,8 +1209,14 @@ function initVideos(category='popular') {
   const el = document.getElementById('videoList');
   el.innerHTML = '<div class="section-label">KLİPLER YÜKLENİYOR...</div>' + skeletonCards(6) + '<div class="load-more" id="videoLoadMore"></div>';
   if (typeof YTPROAndroid !== 'undefined') {
-    const filterMap = { popular:'türkçe müzik klip trend', random:'türkçe karışık müzik klip', trending:'trend müzik klip 2024', new:'yeni çıkan müzik klip', top:'top 100 türkçe klip', local:'türkçe müzik klip' };
-    YTPROAndroid.getTrendingWithNewPipe('onVideosLoaded'); // Yada fetchTrendingVideos(filterMap[category]...)
+    const filterMap = {
+      popular: 'türkçe müzik klip 2024',
+      new:     'yeni çıkan türkçe müzik klip',
+      top:     'top 100 türkçe müzik klip',
+      local:   'türkçe arabesk müzik klip'
+    };
+    const q = filterMap[category] || 'türkçe müzik klip 2024';
+    YTPROAndroid.searchVideos(q, 'onVideosLoaded');
   }
 }
 function onVideosLoaded(data) {
@@ -1268,9 +1313,39 @@ function playMedia(type, idx) {
   }
 
   if(typeof YTPROAndroid !== 'undefined') {
-    // MediaSession vs eklemesi yap
     try { YTPROAndroid.updateMediaSession(m.title || m.t, m.channel || m.a, 'play'); } catch(e){}
-    // Arka planda NewPipe stream istiyoruz (Mevcut kodlarına dokunmuyoruz, oynatıcı animasyonu eklendi)
+    // Stream URL al ve çal
+    const videoUrl = m.url || ('https://youtube.com/watch?v=' + (m.ytId || m.id || ''));
+    const cbName = '_play_' + Date.now();
+    window[cbName] = function(info) {
+      delete window[cbName];
+      if (!info) { showToast('⚠ Stream alınamadı'); return; }
+      const streamUrl = info.bestAudioUrl || info.previewVideoUrl || '';
+      if (!streamUrl) { showToast('⚠ Stream bulunamadı'); return; }
+      // Mevcut audio tag varsa durdur
+      if (window._ytproAudio) { try { window._ytproAudio.pause(); } catch(e){} }
+      const audio = new Audio(streamUrl);
+      audio.crossOrigin = 'anonymous';
+      window._ytproAudio = audio;
+      audio.play().then(() => {
+        setPlay(true);
+        showToast('▶ ' + (m.title || m.t || ''));
+      }).catch(err => {
+        showToast('⚠ Oynatılamadı: ' + err.message);
+      });
+      audio.ontimeupdate = () => {
+        if (!audio.duration) return;
+        const p = (audio.currentTime / audio.duration) * 100;
+        progPct = p;
+        document.getElementById('progFill').style.width = p + '%';
+        document.getElementById('progThumb').style.left = p + '%';
+        const cur = Math.floor(audio.currentTime);
+        document.getElementById('curTime').textContent =
+          Math.floor(cur/60) + ':' + String(cur%60).padStart(2,'0');
+      };
+      audio.onended = () => { setPlay(false); nextTrack(); };
+    };
+    YTPROAndroid.getPreviewUrl(videoUrl, cbName);
   }
 
   playerPanelEl.classList.add('visible');
@@ -1296,7 +1371,14 @@ function setPlay(v){
   else ic.innerHTML='<path d="M8 5v14l11-7z" fill="white"/>';
   document.getElementById('playMain').classList.toggle('playing',v);
 }
-function togglePlay(){setPlay(!isPlaying);}
+function togglePlay(){
+  const newState = !isPlaying;
+  setPlay(newState);
+  if (window._ytproAudio) {
+    if (newState) window._ytproAudio.play().catch(()=>{});
+    else window._ytproAudio.pause();
+  }
+}
 function nextTrack(){ const list = currentMedia?.mediaType === 'video' ? videoData : songData; if(list.length) playMedia(currentMedia.mediaType, (curTrackIdx+1)%list.length); }
 function prevTrack(){ const list = currentMedia?.mediaType === 'video' ? videoData : songData; if(list.length) playMedia(currentMedia.mediaType, (curTrackIdx-1+list.length)%list.length); }
 
@@ -1417,6 +1499,7 @@ function downloadComplete(tid, filePath) {
   if (downloads[tid]) {
     downloads[tid].pct = 100;
     downloads[tid].speed = '';
+    downloads[tid].filePath = filePath;
     renderDlPage();
   }
   showToast('✔ İndirme tamamlandı!');
@@ -1520,7 +1603,8 @@ function renderDlPage(){
     const statusClass = failed ? 'failed' : done ? 'done' : '';
     const barColor = failed ? '#ff5555' : done ? '#00c853' : 'var(--accent)';
     const actionBtns = done
-      ? `<button onclick="openDlFolder('${id}')" title="Klasörde Göster" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--gray2);background:none;cursor:pointer;color:var(--gray);font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">📁</button>
+      ? `<button onclick="openFile('${id}')" title="Dosyayı Aç" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--gray2);background:none;cursor:pointer;color:var(--gray);font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">▶</button>
+         <button onclick="openDlFolder('${id}')" title="Klasörde Göster" style="width:34px;height:34px;border-radius:8px;border:1px solid var(--gray2);background:none;cursor:pointer;color:var(--gray);font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">📁</button>
          <button onclick="deleteDl('${id}')" title="Sil" style="width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,85,85,.4);background:rgba(255,85,85,.08);cursor:pointer;color:#ff5555;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;">🗑</button>`
       : failed
       ? `<button onclick="deleteDl('${id}')" title="Kaldır" style="width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,85,85,.4);background:rgba(255,85,85,.08);cursor:pointer;color:#ff5555;font-size:17px;display:flex;align-items:center;justify-content:center;">🗑</button>`
@@ -1550,8 +1634,38 @@ function renderDlPage(){
 
 function cancelDl(id){ delete downloads[id]; renderDlPage(); updateDlBadge(); showToast('İndirme iptal edildi'); }
 function deleteDl(id){ delete downloads[id]; renderDlPage(); updateDlBadge(); showToast('🗑 Kaldırıldı'); }
-function openDlFolder(id){ try{ if(typeof YTPROAndroid!=='undefined') YTPROAndroid.openDownloadsFolder(); else showToast('📁 İndirilenler klasörü'); }catch(e){ showToast('📁 Klasör açılamadı'); } }
+function openFile(id) {
+  const d = downloads[id];
+  if (!d || !d.filePath) { showToast('⚠ Dosya yolu bulunamadı'); return; }
+  try { if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.openFile(d.filePath); } catch(e) { showToast('⚠ Açılamadı'); }
+}
+function openDlFolder(id){ try{ if(typeof YTPROAndroid!=='undefined') YTPROAndroid.openDownloadsFolder(); else showToast('📁 İndirilenler klasörü'); } catch(e){} }
 function updateDlBadge(){ document.getElementById('dlBadge').textContent=Object.keys(downloads).length; }
+
+// ══ SAYFA SWIPE DISMISS ══
+function addSwipeToDismiss(pageId, closeFunc) {
+  const page = document.getElementById(pageId);
+  if (!page) return;
+  const body = page.querySelector('[class*="-body"]') || page;
+  let startY = 0, startScrollTop = 0;
+  body.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startScrollTop = body.scrollTop;
+  }, {passive:true});
+  body.addEventListener('touchmove', e => {
+    const dy = e.touches[0].clientY - startY;
+    if (startScrollTop <= 0 && dy > 60) {
+      page.style.transform = 'translateY(' + Math.min(dy - 60, 200) + 'px)';
+      page.style.transition = 'none';
+    }
+  }, {passive:true});
+  body.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - startY;
+    page.style.transition = '';
+    page.style.transform = '';
+    if (startScrollTop <= 0 && dy > 120) closeFunc();
+  }, {passive:true});
+}
 
 // Slider Setup
 function setupSlider(el, fn){
@@ -1685,15 +1799,66 @@ function showPlayerMenu() {
 }
 
 // Tema & Init
+function setPlaybackSpeed(v) {
+  _storeSave('ytpro_speed', v);
+  if (window._ytproAudio) window._ytproAudio.playbackRate = parseFloat(v);
+}
+
 function applyTheme(name, btn) { document.documentElement.setAttribute('data-theme', name); document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); _storeSave('ytpro_theme', name); }
 function toggleDark(){ const isDark = document.documentElement.getAttribute('data-theme') !== 'light'; applyTheme(isDark ? 'light' : 'dark', null); document.getElementById('darkToggle').classList.toggle('on', isDark); }
 window.addEventListener('load',()=>{
   const savedTheme = _storeLoad('ytpro_theme', 'dark'); if(savedTheme) applyTheme(savedTheme, null);
   initVideos(); initSongs(); renderUserPlaylistsInDrawer();
+  addSwipeToDismiss('dlPage', closeDlPage);
+  addSwipeToDismiss('plPage', closePlPage);
   setupSlider(document.getElementById('progSlider'), pct=>{ progPct=pct; document.getElementById('progFill').style.width=pct+'%'; document.getElementById('progThumb').style.left=pct+'%'; });
   setupSlider(document.getElementById('volSlider'), pct=>{ let volLevel=Math.round(pct); document.getElementById('volFill').style.width=pct+'%'; document.getElementById('volThumb').style.left=pct+'%'; });
   setInterval(()=>{ if(!isPlaying)return; progPct=(progPct+0.5)%100; document.getElementById('progFill').style.width=progPct+'%'; document.getElementById('progThumb').style.left=progPct+'%'; },1000);
 });
+
+// ══ PULL TO REFRESH ══
+(function(){
+  let startY = 0, pulling = false, threshold = 90;
+  const indicator = document.getElementById('pullIndicator');
+  const main = document.querySelector('.main');
+  if (!main || !indicator) return;
+
+  main.addEventListener('touchstart', e => {
+    const activePanel = document.querySelector('.tab-panel.active .list-area');
+    if (!activePanel || activePanel.scrollTop > 0) return;
+    startY = e.touches[0].clientY;
+    pulling = true;
+  }, {passive:true});
+
+  main.addEventListener('touchmove', e => {
+    if (!pulling) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 20) {
+      indicator.classList.add('visible');
+      indicator.style.opacity = Math.min(dy / threshold, 1);
+    }
+  }, {passive:true});
+
+  main.addEventListener('touchend', e => {
+    if (!pulling) return;
+    pulling = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > threshold) {
+      indicator.classList.add('spinning');
+      setTimeout(() => {
+        initVideos(); initSongs();
+        setTimeout(() => {
+          indicator.classList.remove('visible','spinning');
+          indicator.style.opacity = '';
+        }, 1200);
+      }, 300);
+    } else {
+      indicator.classList.remove('visible');
+      indicator.style.opacity = '';
+    }
+  }, {passive:true});
+})();
+
 </script>
 </body>
 </html>
