@@ -1161,7 +1161,7 @@ document.getElementById('globalSearchInput').addEventListener('keydown', e => { 
 
 // ══ RENDER & INIT (SADECE MÜZİK VİDEOLARI & ALBÜM BİLGİSİ) ══
 function renderVideoCard(v, i) {
-  const tid = v.ytId || '';
+  const tid = v.ytId || v.id || '';
   const turl = v.url || ('https://youtube.com/watch?v='+tid);
   const ttl = (v.title||'').replace(/'/g,"&#39;");
   const tch = (v.channel||'').replace(/'/g,"&#39;");
@@ -1209,21 +1209,27 @@ function initVideos(category='popular') {
   const el = document.getElementById('videoList');
   el.innerHTML = '<div class="section-label">KLİPLER YÜKLENİYOR...</div>' + skeletonCards(6) + '<div class="load-more" id="videoLoadMore"></div>';
   if (typeof YTPROAndroid !== 'undefined') {
-    const filterMap = {
-      popular: 'türkçe müzik klip 2024',
-      new:     'yeni çıkan türkçe müzik klip',
-      top:     'top 100 türkçe müzik klip',
-      local:   'türkçe arabesk müzik klip'
-    };
-    const q = filterMap[category] || 'türkçe müzik klip 2024';
-    YTPROAndroid.searchVideos(q, 'onVideosLoaded');
+    if (category === 'popular' || category === 'trending') {
+      // Trend müzik klipleri - NewPipe trending
+      YTPROAndroid.getTrendingWithNewPipe('onVideosLoaded');
+    } else {
+      const filterMap = {
+        new:   'yeni çıkan türkçe müzik klip',
+        top:   'top 100 türkçe müzik video',
+        local: 'türkçe arabesk müzik klip'
+      };
+      const q = filterMap[category] || 'türkçe müzik klip';
+      YTPROAndroid.searchVideos(q, 'onVideosLoaded');
+    }
   }
 }
 function onVideosLoaded(data) {
-  if (!data || !data.length) return;
+  if (!data || !data.length) { hideLoadingBar(); showToast('⚠ İçerik yüklenemedi'); return; }
   videoData = data; videoPage = 1;
   const el = document.getElementById('videoList');
-  el.innerHTML = '<div class="section-label">POPÜLER KLİPLER</div>' + videoData.map((v,i) => renderVideoCard(v,i)).join('');
+  const labels = {popular:'🔥 POPÜLER KLİPLER', new:'✨ YENİ KLİPLER', top:'👑 TOP KLİPLER', local:'🇹🇷 TÜRKÇE KLİP', trending:'📈 TREND KLİPLER'};
+  const label = labels[currentVideoFilter] || 'MÜZİK KLİPLERİ';
+  el.innerHTML = '<div class="section-label">' + label + '</div>' + videoData.map((v,i) => renderVideoCard(v,i)).join('');
   el.insertAdjacentHTML('beforeend','<div class="load-more" id="videoLoadMore">Aşağı kaydırarak yükle...</div>');
   hideLoadingBar();
 }
@@ -1249,14 +1255,22 @@ function onSongsLoaded(data) {
 // ══ SONSUZ DÖNGÜ (INFINITE SCROLL) ══
 function checkScroll(type, el) {
   if (loadingMore) return;
-  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 60) {
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
     loadingMore = true; showLoadingBar();
     if (type === 'video') {
-      const q = (currentVideoFilter === 'popular' ? 'türkçe pop klip' : currentVideoFilter) + ' sayfa ' + (videoPage + 1);
-      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.fetchTrendingVideos(q, 'onMoreVideosLoaded');
+      const filters = {
+        popular: 'türkçe müzik klip', new: 'yeni türkçe müzik',
+        top: 'top türkçe klip', local: 'arabesk klip'
+      };
+      const q = (filters[currentVideoFilter] || 'türkçe müzik') + ' ' + (videoPage + 1);
+      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.searchVideos(q, 'onMoreVideosLoaded');
     } else {
-      const q = (currentSongFilter === 'popular' ? 'türkçe pop şarkılar' : currentSongFilter) + ' sayfa ' + (songPage + 1);
-      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.fetchTrendingSongs(q, 'onMoreSongsLoaded');
+      const filters = {
+        popular: 'türkçe pop müzik', new: 'yeni şarkılar', top: 'top 50 türkçe',
+        rap: 'türkçe rap', rock: 'türkçe rock', pop: 'türkçe pop'
+      };
+      const q = (filters[currentSongFilter] || 'türkçe müzik') + ' ' + (songPage + 1);
+      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.searchSongs(q, 'onMoreSongsLoaded');
     }
   }
 }
@@ -1349,7 +1363,7 @@ function playMedia(type, idx) {
   }
 
   playerPanelEl.classList.add('visible');
-  setPlay(true);
+  // setPlay(true) stream callback içinde çağrılıyor
 
   // Kalp ve indirme butonunu sıfırla
   const favBtn = document.getElementById('playerFavBtn');
@@ -1452,6 +1466,19 @@ const dlBtnMap = {};
 
 function startRealDl(title, url, ytId, type, quality) {
   startDlWithProgress(title, url, ytId, type, quality, null);
+}
+
+// ══ NEWPIPE FALLBACK ══
+function onNewPipeTrendingFailed(cb) {
+  if (typeof YTPROAndroid !== 'undefined') {
+    // yt-dlp ile müzik araması yap
+    YTPROAndroid.fetchTrendingVideos('türkçe müzik klip 2024', cb);
+  }
+}
+function onNewPipeSearchFailed(query, cb) {
+  if (typeof YTPROAndroid !== 'undefined') {
+    YTPROAndroid.fetchTrendingSongs(query, cb);
+  }
 }
 
 // ══ İNDİRME PROGRESS ANİMASYONU ══
@@ -1642,29 +1669,44 @@ function openFile(id) {
 function openDlFolder(id){ try{ if(typeof YTPROAndroid!=='undefined') YTPROAndroid.openDownloadsFolder(); else showToast('📁 İndirilenler klasörü'); } catch(e){} }
 function updateDlBadge(){ document.getElementById('dlBadge').textContent=Object.keys(downloads).length; }
 
-// ══ SAYFA SWIPE DISMISS ══
+// ══ SAYFA SWIPE DISMISS (ortadan tut aşağı çek = kapat) ══
 function addSwipeToDismiss(pageId, closeFunc) {
   const page = document.getElementById(pageId);
   if (!page) return;
-  const body = page.querySelector('[class*="-body"]') || page;
-  let startY = 0, startScrollTop = 0;
-  body.addEventListener('touchstart', e => {
+  const scrollEl = page.querySelector('[class*="-body"]') || page;
+  let startX = 0, startY = 0, startScrollTop = 0, active = false;
+
+  page.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
     startY = e.touches[0].clientY;
-    startScrollTop = body.scrollTop;
-  }, {passive:true});
-  body.addEventListener('touchmove', e => {
+    startScrollTop = scrollEl.scrollTop;
+    active = true;
+  }, {passive: true});
+
+  page.addEventListener('touchmove', e => {
+    if (!active) return;
+    const dx = Math.abs(e.touches[0].clientX - startX);
     const dy = e.touches[0].clientY - startY;
-    if (startScrollTop <= 0 && dy > 60) {
-      page.style.transform = 'translateY(' + Math.min(dy - 60, 200) + 'px)';
+    // Sadece aşağı çekilince ve scroll en üstteyse
+    if (startScrollTop <= 2 && dy > 0 && dy > dx) {
+      const pull = Math.min(dy * 0.6, 220);
+      page.style.transform = 'translateY(' + pull + 'px)';
       page.style.transition = 'none';
+      page.style.opacity = String(Math.max(0.4, 1 - pull / 300));
     }
-  }, {passive:true});
-  body.addEventListener('touchend', e => {
+  }, {passive: true});
+
+  page.addEventListener('touchend', e => {
+    if (!active) return;
+    active = false;
     const dy = e.changedTouches[0].clientY - startY;
-    page.style.transition = '';
+    page.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
     page.style.transform = '';
-    if (startScrollTop <= 0 && dy > 120) closeFunc();
-  }, {passive:true});
+    page.style.opacity = '';
+    if (startScrollTop <= 2 && dy > 110) {
+      closeFunc();
+    }
+  }, {passive: true});
 }
 
 // Slider Setup
@@ -1799,9 +1841,31 @@ function showPlayerMenu() {
 }
 
 // Tema & Init
+function setBgPlay(enabled) {
+  _storeSave('ytpro_bgplay', enabled ? '1' : '0');
+  if (typeof YTPROAndroid !== 'undefined') {
+    try { YTPROAndroid.setBgPlay(enabled); } catch(e) {}
+  }
+}
+
 function setPlaybackSpeed(v) {
   _storeSave('ytpro_speed', v);
   if (window._ytproAudio) window._ytproAudio.playbackRate = parseFloat(v);
+}
+
+function applyCustomTheme() {
+  const bg = document.getElementById('customBg').value;
+  const accent = document.getElementById('customAccent').value;
+  const text = document.getElementById('customText').value;
+  const root = document.documentElement;
+  root.style.setProperty('--bg', bg);
+  root.style.setProperty('--bg2', bg + 'dd');
+  root.style.setProperty('--bg3', bg + 'bb');
+  root.style.setProperty('--card', bg + 'cc');
+  root.style.setProperty('--red', accent);
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--text', text);
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active'));
 }
 
 function applyTheme(name, btn) { document.documentElement.setAttribute('data-theme', name); document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); _storeSave('ytpro_theme', name); }
@@ -1818,45 +1882,55 @@ window.addEventListener('load',()=>{
 
 // ══ PULL TO REFRESH ══
 (function(){
-  let startY = 0, pulling = false, threshold = 90;
+  let startY = 0, pulling = false, threshold = 80;
   const indicator = document.getElementById('pullIndicator');
   const main = document.querySelector('.main');
   if (!main || !indicator) return;
 
   main.addEventListener('touchstart', e => {
-    const activePanel = document.querySelector('.tab-panel.active .list-area');
-    if (!activePanel || activePanel.scrollTop > 0) return;
+    const list = document.querySelector('.tab-panel.active .list-area');
+    if (!list || list.scrollTop > 4) return;
     startY = e.touches[0].clientY;
     pulling = true;
-  }, {passive:true});
+  }, {passive: true});
 
   main.addEventListener('touchmove', e => {
     if (!pulling) return;
     const dy = e.touches[0].clientY - startY;
-    if (dy > 20) {
+    if (dy > 10) {
+      const pct = Math.min(dy / threshold, 1);
       indicator.classList.add('visible');
-      indicator.style.opacity = Math.min(dy / threshold, 1);
+      indicator.style.opacity = String(pct);
+      // Tüm kartları aşağı kaydır
+      const shift = Math.min(dy * 0.35, 52);
+      main.style.transform = 'translateY(' + shift + 'px)';
+      main.style.transition = 'none';
     }
-  }, {passive:true});
+  }, {passive: true});
 
   main.addEventListener('touchend', e => {
     if (!pulling) return;
     pulling = false;
+    main.style.transition = 'transform 0.3s ease';
+    main.style.transform = '';
     const dy = e.changedTouches[0].clientY - startY;
     if (dy > threshold) {
       indicator.classList.add('spinning');
       setTimeout(() => {
-        initVideos(); initSongs();
+        const cat = document.querySelector('.tab-panel.active')?.id === 'panel-videos'
+          ? currentVideoFilter : currentSongFilter;
+        initVideos(currentVideoFilter);
+        initSongs(currentSongFilter);
         setTimeout(() => {
-          indicator.classList.remove('visible','spinning');
+          indicator.classList.remove('visible', 'spinning');
           indicator.style.opacity = '';
-        }, 1200);
+        }, 1400);
       }, 300);
     } else {
       indicator.classList.remove('visible');
       indicator.style.opacity = '';
     }
-  }, {passive:true});
+  }, {passive: true});
 })();
 
 </script>
