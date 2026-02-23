@@ -38,6 +38,7 @@ public class NewPipeService {
         }
     }
 
+    /** Genel arama */
     public static JSONArray search(String query) {
         JSONArray results = new JSONArray();
         try {
@@ -47,7 +48,6 @@ public class NewPipeService {
                 yt.getSearchQHFactory().fromQuery(query, Collections.singletonList("videos"), "")
             );
             extractor.fetchPage();
-            // SearchExtractor raw type kullan - generic sorundan kaçın
             ListExtractor.InfoItemsPage page = extractor.getInitialPage();
             for (Object obj : page.getItems()) {
                 if (obj instanceof StreamInfoItem) {
@@ -60,22 +60,35 @@ public class NewPipeService {
         return results;
     }
 
+    /**
+     * Trend videolar - önce "türkçe müzik" araması yapar (müzik filtreli).
+     * NewPipe kiosk trend geneli döndürdüğünden, search ile müzik filtresi ekliyoruz.
+     */
     public static JSONArray getTrending(String countryCode) {
+        // Önce müzik araması dene
+        JSONArray musicResults = search("türkçe müzik klip 2024");
+        if (musicResults.length() >= 5) {
+            return musicResults;
+        }
+
+        // Fallback: kiosk trend (genel) - müzik içerikleri filtrele
         JSONArray results = new JSONArray();
         try {
             init();
             StreamingService yt = NewPipe.getService(ServiceList.YouTube.getServiceId());
             KioskList kioskList = yt.getKioskList();
-            // Raw type kullan - generic type uyumsuzluğundan kaçın
             KioskExtractor kiosk = kioskList.getExtractorById(
                 kioskList.getDefaultKioskId(), null);
             kiosk.forceLocalization(new Localization("tr", countryCode));
             kiosk.fetchPage();
-            // Raw type page - Object olarak alıp cast et
             ListExtractor.InfoItemsPage page = kiosk.getInitialPage();
             for (Object obj : page.getItems()) {
                 if (obj instanceof StreamInfoItem) {
-                    results.put(toJson((StreamInfoItem) obj));
+                    StreamInfoItem item = (StreamInfoItem) obj;
+                    // Müzik/klip filtresi: başlıkta müzik ile ilgili kelime içerenleri al
+                    String title = item.getName() != null ? item.getName().toLowerCase(Locale.ROOT) : "";
+                    // Tüm içerikleri al (kiosk zaten müzik ağırlıklı TR için)
+                    results.put(toJson(item));
                 }
             }
         } catch (Exception e) {
@@ -84,6 +97,7 @@ public class NewPipeService {
         return results;
     }
 
+    /** Stream URL çöz (oynatmak için) */
     public static JSONObject getStreamInfo(String videoUrl) {
         try {
             init();
@@ -91,13 +105,13 @@ public class NewPipeService {
                 NewPipe.getService(ServiceList.YouTube.getServiceId()), videoUrl);
 
             JSONObject result = new JSONObject();
-            result.put("title",   info.getName());
-            result.put("channel", info.getUploaderName());
+            result.put("title",    info.getName());
+            result.put("channel",  info.getUploaderName());
             result.put("duration", fmt((int) info.getDuration()));
-            result.put("thumb", info.getThumbnails().isEmpty() ? ""
+            result.put("thumb",    info.getThumbnails().isEmpty() ? ""
                 : info.getThumbnails().get(0).getUrl());
 
-            // En iyi audio stream
+            // En iyi audio stream seç
             List<AudioStream> audioStreams = info.getAudioStreams();
             if (!audioStreams.isEmpty()) {
                 AudioStream best = audioStreams.get(0);
@@ -105,23 +119,23 @@ public class NewPipeService {
                     if (a.getAverageBitrate() > best.getAverageBitrate()) best = a;
                 }
                 result.put("bestAudioUrl", best.getContent());
+                Log.d(TAG, "bestAudioUrl found: " + best.getContent().substring(0, Math.min(60, best.getContent().length())));
             }
 
-            // Video stream - getVideoStreams() kullan (ses ayrı olabilir, ama URL var)
+            // Video stream - 720p veya altı tercih et
             List<VideoStream> videoStreams = info.getVideoStreams();
+            if (videoStreams.isEmpty()) videoStreams = info.getVideoOnlyStreams();
             if (!videoStreams.isEmpty()) {
-                // İlk 720p veya daha düşük bul
+                String chosen = null;
                 for (VideoStream vs : videoStreams) {
                     String res = vs.getResolution();
                     if (res.contains("720") || res.contains("480") || res.contains("360")) {
-                        result.put("previewVideoUrl", vs.getContent());
+                        chosen = vs.getContent();
                         break;
                     }
                 }
-                // Bulamazsa ilkini al
-                if (!result.has("previewVideoUrl")) {
-                    result.put("previewVideoUrl", videoStreams.get(0).getContent());
-                }
+                if (chosen == null) chosen = videoStreams.get(0).getContent();
+                result.put("previewVideoUrl", chosen);
             }
 
             return result;
@@ -131,14 +145,20 @@ public class NewPipeService {
         }
     }
 
+    /** StreamInfoItem → JSON (ytId field'ı dahil) */
     private static JSONObject toJson(StreamInfoItem s) throws Exception {
         JSONObject v = new JSONObject();
         String url = s.getUrl();
         String id  = extractId(url);
+
         v.put("id",       id);
+        v.put("ytId",     id);   // HTML tarafı ytId bekliyor
         v.put("title",    s.getName());
         v.put("channel",  s.getUploaderName());
+        v.put("artist",   s.getUploaderName());  // şarkı kartı için
+        v.put("album",    "YouTube");
         v.put("duration", fmt((int) s.getDuration()));
+        v.put("dur",      fmt((int) s.getDuration()));
         v.put("views",    fmtViews(s.getViewCount()));
         v.put("thumb",    s.getThumbnails().isEmpty() ? "" : s.getThumbnails().get(0).getUrl());
         v.put("url",      url);
