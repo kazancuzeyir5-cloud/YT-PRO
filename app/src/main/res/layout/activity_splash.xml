@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0a0a0a">
+
+    <!-- Merkez: logo + yazı -->
+    <LinearLayout
+        android:id="@+id/logoWrap"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:alpha="0">
+
+        <!-- Daire içinde play ikonu -->
+        <FrameLayout
+            android:layout_width="88dp"
+            android:layout_height="88dp"
+            android:layout_marginBottom="24dp">
+
+            <!-- Kırmızı ince daire kenarlık -->
+            <View
+                android:layout_width="88dp"
+                android:layout_height="88dp"
+                android:background="@drawable/logo_ring"/>
+
+            <!-- Beyaz play üçgeni -->
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="center"
+                android:layout_marginStart="4dp"
+                android:src="@drawable/ic_play_arrow"
+                android:tint="#FFFFFF"/>
+        </FrameLayout>
+
+        <!-- YT-PRO yazısı: ince, geniş harf aralığı -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="YT·PRO"
+            android:textColor="#FFFFFF"
+            android:textSize="32sp"
+            android:letterSpacing="0.5"
+            android:fontFamily="sans-serif-light"
+            android:textStyle="normal"/>
+
+    </LinearLayout>
+
+    <!-- Alt tagline -->
+    <TextView
+        android:id="@+id/tagline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="56dp"
+        android:text="YOUTUBE · İNDİRİCİ"
+        android:textColor="#333333"
+        android:textSize="10sp"
+        android:letterSpacing="0.5"
+        android:fontFamily="monospace"
+        android:alpha="0"/>
+
+</FrameLayout>
