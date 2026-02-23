@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.IBinder;
 import android.webkit.JavascriptInterface;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -85,6 +86,7 @@ public class MainActivity extends AppCompatActivity {
 
         ytDlpPath = getFilesDir().getAbsolutePath() + "/yt-dlp";
         setupYtDlp();
+        
         // NewPipe Extractor başlat (arka planda)
         executor.execute(() -> NewPipeService.init());
 
@@ -99,8 +101,11 @@ public class MainActivity extends AppCompatActivity {
         bindService(svcIntent, mediaConn, Context.BIND_AUTO_CREATE);
 
         // Kilit ekranı komut alıcısını kaydet
-        registerReceiver(mediaControlReceiver,
-            new IntentFilter("com.ytpro.MEDIA_CONTROL"));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(mediaControlReceiver, new IntentFilter("com.ytpro.MEDIA_CONTROL"), Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(mediaControlReceiver, new IntentFilter("com.ytpro.MEDIA_CONTROL"));
+        }
     }
 
     private void setupYtDlp() {
@@ -181,9 +186,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // YENİ ONBACKPRESSED - XIAOMI GESTURE FIX
     @Override
     public void onBackPressed() {
-        if (webView.canGoBack()) webView.goBack(); else super.onBackPressed();
+        // WebView içindeki açık pencereleri kontrol et (HTML tarafındaki handleAndroidBack metodu)
+        webView.evaluateJavascript("javascript:typeof handleAndroidBack === 'function' ? handleAndroidBack() : false", new ValueCallback<String>() {
+            @Override
+            public void onReceiveValue(String value) {
+                // Eğer JS tarafı bir pencere kapatarak "true" gönderirse, uygulamayı kapatma
+                if ("true".equals(value)) {
+                    return; 
+                } 
+                // Eğer açık bir modal/pencere yoksa (false dönerse), web sayfası gerisine veya uygulamadan çıkışa git
+                else if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    MainActivity.super.onBackPressed();
+                }
+            }
+        });
     }
 
     @Override
@@ -194,7 +215,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // ══════════════════════════════════════
-    // JavaScript Köprüsü
+    // JavaScript Köprüsü (HTML ile iletişim)
     // ══════════════════════════════════════
     public class YTPROBridge {
         private final Activity activity;
@@ -262,13 +283,11 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // ── NewPipe: Önizleme stream URL'si al ───────────
         @JavascriptInterface
         public void getPreviewUrl(String videoUrl, String cb) {
             executor.execute(() -> {
                 try {
-                    // Önce NewPipe dene (daha hızlı)
-                    org.json.JSONObject info = NewPipeService.getStreamInfo(videoUrl);
+                    JSONObject info = NewPipeService.getStreamInfo(videoUrl);
                     if (info != null && (info.has("bestAudioUrl") || info.has("previewVideoUrl"))) {
                         String json = info.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
@@ -277,17 +296,15 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     android.util.Log.w("YTPROBridge", "NewPipe preview failed, fallback: " + e.getMessage());
                 }
-                // NewPipe başarısız → null döndür, HTML5 audio denesin
                 runOnUiThread(() -> webView.evaluateJavascript(cb + "(null)", null));
             });
         }
 
-        // ── NewPipe: Arama ───────────────────────────────
         @JavascriptInterface
         public void searchWithNewPipe(String query, String cb) {
             executor.execute(() -> {
                 try {
-                    org.json.JSONArray results = NewPipeService.search(query);
+                    JSONArray results = NewPipeService.search(query);
                     if (results.length() > 0) {
                         String json = results.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
@@ -296,18 +313,15 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     android.util.Log.w("YTPROBridge", "NewPipe search failed: " + e.getMessage());
                 }
-                // Fallback: yt-dlp ile ara
-                runOnUiThread(() -> webView.evaluateJavascript(
-                    "onNewPipeSearchFailed('" + query.replace("'","\'") + "','" + cb + "')", null));
+                runOnUiThread(() -> webView.evaluateJavascript("onNewPipeSearchFailed('" + query.replace("'","\\'") + "','" + cb + "')", null));
             });
         }
 
-        // ── NewPipe: Trend videolar ──────────────────────
         @JavascriptInterface
         public void getTrendingWithNewPipe(String cb) {
             executor.execute(() -> {
                 try {
-                    org.json.JSONArray results = NewPipeService.getTrending("TR");
+                    JSONArray results = NewPipeService.getTrending("TR");
                     if (results.length() > 0) {
                         String json = results.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
@@ -316,19 +330,15 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception e) {
                     android.util.Log.w("YTPROBridge", "NewPipe trending failed: " + e.getMessage());
                 }
-                // Fallback: yt-dlp
-                runOnUiThread(() -> webView.evaluateJavascript(
-                    "onNewPipeTrendingFailed('" + cb + "')", null));
+                runOnUiThread(() -> webView.evaluateJavascript("onNewPipeTrendingFailed('" + cb + "')", null));
             });
         }
 
-        // ── searchVideos / searchSongs (HTML'den çağrılan) ──
         @JavascriptInterface
         public void searchVideos(String query, String cb) {
-            // NewPipe önce, sonra yt-dlp fallback
             executor.execute(() -> {
                 try {
-                    org.json.JSONArray r = NewPipeService.search(query);
+                    JSONArray r = NewPipeService.search(query);
                     if (r.length() > 0) {
                         String json = r.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
@@ -343,7 +353,7 @@ public class MainActivity extends AppCompatActivity {
         public void searchSongs(String query, String cb) {
             executor.execute(() -> {
                 try {
-                    org.json.JSONArray r = NewPipeService.search(query + " müzik");
+                    JSONArray r = NewPipeService.search(query + " müzik");
                     if (r.length() > 0) {
                         String json = r.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
@@ -355,55 +365,63 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
-        public void fetchVideoInfo(String url, String cb) {
+        public void updateMediaSession(String title, String artist, String action) {
+            if (mediaServiceBound && mediaService != null) {
+                mediaService.updateSession(title, artist, action, "");
+            }
+        }
+
+        // YENİ İNDİRME SİSTEMİ (DownloadManager)
+        @JavascriptInterface
+        public void startDownload(final String url, final String quality, final String type, final String title) {
+            runOnUiThread(() -> webView.evaluateJavascript("showToast('⏳ Link çözümleniyor, bekle...');", null));
+
             executor.execute(() -> {
                 try {
-                    String raw = runYtDlp("--dump-json","--no-warnings","--socket-timeout","15",url);
-                    runOnUiThread(() -> webView.evaluateJavascript(cb+"("+raw+")", null));
+                    // NewPipe üzerinden gerçek ses/video stream linkini al
+                    JSONObject info = NewPipeService.getStreamInfo(url);
+                    String downloadUrl = "";
+                    String ext = "";
+
+                    if (info != null) {
+                        if (type.equals("audio") || type.equals("mp3")) {
+                            ext = ".m4a"; 
+                            downloadUrl = info.optString("bestAudioUrl", "");
+                        } else {
+                            ext = ".mp4";
+                            downloadUrl = info.optString("previewVideoUrl", "");
+                        }
+                    }
+
+                    if (downloadUrl.isEmpty()) {
+                        runOnUiThread(() -> webView.evaluateJavascript("showToast('❌ Medya kaynağı bulunamadı!');", null));
+                        return;
+                    }
+
+                    // Android'in yerleşik DownloadManager'ına gönder
+                    android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(Uri.parse(downloadUrl));
+                    request.setTitle(title);
+                    request.setDescription("YT-PRO Premium");
+                    request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+
+                    String safeTitle = title.replaceAll("[\\\\/:*?\"<>|]", "_");
+                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, safeTitle + ext);
+
+                    android.app.DownloadManager manager = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
+                    if (manager != null) {
+                        manager.enqueue(request);
+                        runOnUiThread(() -> webView.evaluateJavascript("showToast('⬇ İndirme başladı! Bildirimleri kontrol et.');", null));
+                    }
                 } catch (Exception e) {
-                    runOnUiThread(() -> webView.evaluateJavascript(cb+"(null)", null));
+                    e.printStackTrace();
+                    runOnUiThread(() -> webView.evaluateJavascript("showToast('❌ Hata: " + e.getMessage() + "');", null));
                 }
             });
         }
 
-        // KİLİT EKRANI + ARKA PLAN OYNATMA
-        @JavascriptInterface
-        public void updateMediaSession(String title, String artist, String action) {
-            if (mediaServiceBound && mediaService != null) {
-                // Thumbnail URL'yi playerArt'tan al
-                String thumbUrl = "";
-                mediaService.updateSession(title, artist, action, thumbUrl);
-            }
-        }
-
-        @JavascriptInterface
-        public void updateMediaSessionWithThumb(String title, String artist, String action, String thumbUrl) {
-            if (mediaServiceBound && mediaService != null) {
-                mediaService.updateSession(title, artist, action, thumbUrl);
-            }
-        }
-
-        @JavascriptInterface
-        public void startDownload(String url, String quality, String type, String title) {
-            Intent intent = new Intent(activity, DownloadService.class);
-            intent.putExtra("url",    url);
-            intent.putExtra("quality",quality);
-            intent.putExtra("type",   type);
-            intent.putExtra("title",  title);
-            intent.putExtra("ytdlp",  ytDlpPath);
-            activity.startForegroundService(intent);
-        }
-
-        @JavascriptInterface
-        public String getDownloadPath() {
-            return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                .getAbsolutePath() + "/YT-PRO";
-        }
-
         @JavascriptInterface
         public boolean isDarkMode() {
-            int m = activity.getResources().getConfiguration().uiMode
-                & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+            int m = activity.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
             return m == android.content.res.Configuration.UI_MODE_NIGHT_YES;
         }
 
@@ -411,44 +429,13 @@ public class MainActivity extends AppCompatActivity {
         public void showNativeToast(String msg) {
             activity.runOnUiThread(() -> Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show());
         }
-
-        @JavascriptInterface
-        public void openFile(String path) {
-            Intent i = new Intent(Intent.ACTION_VIEW);
-            i.setDataAndType(Uri.parse("file://" + path), "*/*");
-            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            activity.startActivity(Intent.createChooser(i, "Aç"));
-        }
-
-        @JavascriptInterface
-        public String getDeviceInfo() {
-            try {
-                JSONObject info = new JSONObject();
-                info.put("model",   Build.MODEL);
-                info.put("android", Build.VERSION.RELEASE);
-                info.put("sdk",     Build.VERSION.SDK_INT);
-                return info.toString();
-            } catch (Exception e) { return "{}"; }
-        }
-
-        public void notifyProgress(String tid, int pct, String speed) {
-            activity.runOnUiThread(() -> webView.evaluateJavascript(
-                String.format("updateDownloadProgress('%s',%d,'%s')",tid,pct,speed), null));
-        }
-        public void notifyComplete(String tid, String path) {
-            activity.runOnUiThread(() -> webView.evaluateJavascript(
-                String.format("downloadComplete('%s','%s')",tid,path.replace("'","\\'")), null));
-        }
-        public void notifyError(String tid, String err) {
-            activity.runOnUiThread(() -> webView.evaluateJavascript(
-                String.format("downloadError('%s','%s')",tid,err.replace("'","\\'")), null));
-        }
     }
 
     private String formatDuration(int s) {
         if (s <= 0) return "0:00";
         return (s/60) + ":" + (s%60 < 10 ? "0" : "") + (s%60);
     }
+    
     private String formatViews(long v) {
         if (v >= 1_000_000_000) return String.format("%.1fB", v/1_000_000_000.0);
         if (v >= 1_000_000)     return String.format("%.1fM", v/1_000_000.0);
