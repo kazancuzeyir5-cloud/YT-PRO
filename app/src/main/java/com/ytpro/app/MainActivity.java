@@ -371,75 +371,82 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        // YENİ İNDİRME SİSTEMİ (DownloadManager)
-        @JavascriptInterface
-        public void startDownload(final String url, final String quality, final String type, final String title) {
-            runOnUiThread(() -> webView.evaluateJavascript("showToast('⏳ Link çözümleniyor, bekle...');", null));
+        // YENİ İNDİRME SİSTEMİ
+       @JavascriptInterface
+public void startDownload(final String url, final String quality, final String type, final String title, final String tid) {
+    runOnUiThread(() -> webView.evaluateJavascript("showToast('⏳ Medya kaynağı çözümleniyor...');", null));
 
-            executor.execute(() -> {
-                try {
-                    // NewPipe üzerinden gerçek ses/video stream linkini al
-                    JSONObject info = NewPipeService.getStreamInfo(url);
-                    String downloadUrl = "";
-                    String ext = "";
+    new Thread(() -> {
+        try {
+            // 1. NewPipe ile arkaplanda saf linki (MP4/M4A) bul
+            org.schabi.newpipe.extractor.stream.StreamInfo streamInfo = org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(org.schabi.newpipe.extractor.ServiceList.YouTube, url);
+            
+            String downloadUrl = "";
+            String ext = type.equals("audio") ? ".m4a" : ".mp4";
 
-                    if (info != null) {
-                        if (type.equals("audio") || type.equals("mp3")) {
-                            ext = ".m4a"; 
-                            downloadUrl = info.optString("bestAudioUrl", "");
-                        } else {
-                            ext = ".mp4";
-                            downloadUrl = info.optString("previewVideoUrl", "");
-                        }
-                    }
-
-                    if (downloadUrl.isEmpty()) {
-                        runOnUiThread(() -> webView.evaluateJavascript("showToast('❌ Medya kaynağı bulunamadı!');", null));
-                        return;
-                    }
-
-                    // Android'in yerleşik DownloadManager'ına gönder
-                    android.app.DownloadManager.Request request = new android.app.DownloadManager.Request(Uri.parse(downloadUrl));
-                    request.setTitle(title);
-                    request.setDescription("YT-PRO Premium");
-                    request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-
-                    String safeTitle = title.replaceAll("[\\\\/:*?\"<>|]", "_");
-                    request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, safeTitle + ext);
-
-                    android.app.DownloadManager manager = (android.app.DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
-                    if (manager != null) {
-                        manager.enqueue(request);
-                        runOnUiThread(() -> webView.evaluateJavascript("showToast('⬇ İndirme başladı! Bildirimleri kontrol et.');", null));
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    runOnUiThread(() -> webView.evaluateJavascript("showToast('❌ Hata: " + e.getMessage() + "');", null));
+            if (type.equals("audio") || type.equals("mp3")) {
+                if (!streamInfo.getAudioStreams().isEmpty()) {
+                    downloadUrl = streamInfo.getAudioStreams().get(0).getContent();
                 }
-            });
-        }
+            } else {
+                if (!streamInfo.getVideoStreams().isEmpty()) {
+                    downloadUrl = streamInfo.getVideoStreams().get(0).getContent();
+                } else if (!streamInfo.getVideoOnlyStreams().isEmpty()) {
+                    downloadUrl = streamInfo.getVideoOnlyStreams().get(0).getContent();
+                }
+            }
 
-        @JavascriptInterface
-        public boolean isDarkMode() {
-            int m = activity.getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
-            return m == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-        }
+            if (downloadUrl.isEmpty()) {
+                runOnUiThread(() -> webView.evaluateJavascript("downloadError('" + tid + "', 'Kaynak bulunamadı');", null));
+                return;
+            }
 
-        @JavascriptInterface
-        public void showNativeToast(String msg) {
-            activity.runOnUiThread(() -> Toast.makeText(activity, msg, Toast.LENGTH_SHORT).show());
-        }
-    }
+            // 2. Kendi Özel İndirme Motorumuz (Bildirimsiz, Direkt Cihaza İndirir)
+            java.net.URL urlObj = new java.net.URL(downloadUrl);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) urlObj.openConnection();
+            conn.connect();
 
-    private String formatDuration(int s) {
-        if (s <= 0) return "0:00";
-        return (s/60) + ":" + (s%60 < 10 ? "0" : "") + (s%60);
-    }
-    
-    private String formatViews(long v) {
-        if (v >= 1_000_000_000) return String.format("%.1fB", v/1_000_000_000.0);
-        if (v >= 1_000_000)     return String.format("%.1fM", v/1_000_000.0);
-        if (v >= 1_000)         return String.format("%.1fK", v/1_000.0);
-        return String.valueOf(v);
-    }
+            int fileLength = conn.getContentLength();
+            java.io.InputStream input = new java.io.BufferedInputStream(urlObj.openStream());
+            
+            // Cihazın "İndirilenler" klasörüne hedef oluştur
+            java.io.File dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+            String safeTitle = title.replaceAll("[\\\\/:*?\"<>|]", "_");
+            java.io.File file = new java.io.File(dir, safeTitle + ext);
+            java.io.OutputStream output = new java.io.FileOutputStream(file);
+
+            byte[] data = new byte[8192];
+            long total = 0;
+            int count;
+            int lastPct = -1;
+            long startTime = System.currentTimeMillis();
+
+            // Saniyede bir HTML arayüzüne (Butona) % yüzde değerini gönder
+            while ((count = input.read(data)) != -1) {
+                total += count;
+                int pct = (int) ((total * 100) / fileLength);
+                
+                if (pct > lastPct) {
+                    lastPct = pct;
+                    long elapsed = System.currentTimeMillis() - startTime;
+                    double speed = elapsed > 0 ? ((double) total / 1024 / 1024) / (elapsed / 1000.0) : 0;
+                    String speedStr = String.format(java.util.Locale.US, "%.1f MB/s", speed);
+                    
+                    runOnUiThread(() -> webView.evaluateJavascript("updateDownloadProgress('" + tid + "', " + pct + ", '" + speedStr + "');", null));
+                }
+                output.write(data, 0, count);
+            }
+
+            output.flush();
+            output.close();
+            input.close();
+
+            // 3. İndirme bittiğinde HTML'e Yeşil Tik komutunu gönder
+            runOnUiThread(() -> webView.evaluateJavascript("downloadComplete('" + tid + "', '" + file.getAbsolutePath() + "');", null));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            runOnUiThread(() -> webView.evaluateJavascript("downloadError('" + tid + "', 'Bağlantı koptu');", null));
+        }
+    }).start();
 }
