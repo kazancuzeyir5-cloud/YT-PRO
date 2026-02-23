@@ -234,6 +234,7 @@ body{
   flex-shrink:0;overflow-x:scroll;scrollbar-width:none;
   -webkit-overflow-scrolling:touch;
   scroll-snap-type:x proximity;
+  touch-action:pan-x;
 }
 .filter-bar::-webkit-scrollbar{display:none;}
 .f-btn{
@@ -253,7 +254,7 @@ body{
 .f-btn:active{transform:scale(.95);}
 
 /* ══ LIST AREA ══ */
-.list-area{flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:0 10px 6px;}
+.list-area{flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:0 10px 80px;touch-action:pan-y;overscroll-behavior:contain;}
 .list-area::-webkit-scrollbar{width:3px;}
 .list-area::-webkit-scrollbar-thumb{background:var(--accent);border-radius:2px;}
 
@@ -1244,18 +1245,15 @@ function initVideos(category='popular') {
   const el = document.getElementById('videoList');
   el.innerHTML = '<div class="section-label">KLİPLER YÜKLENİYOR...</div>' + skeletonCards(6) + '<div class="load-more" id="videoLoadMore"></div>';
   if (typeof YTPROAndroid !== 'undefined') {
-    if (category === 'popular' || category === 'trending') {
-      // Trend müzik klipleri - NewPipe trending
-      YTPROAndroid.getTrendingWithNewPipe('onVideosLoaded');
-    } else {
-      const filterMap = {
-        new:   'yeni çıkan türkçe müzik klip',
-        top:   'top 100 türkçe müzik video',
-        local: 'türkçe arabesk müzik klip'
-      };
-      const q = filterMap[category] || 'türkçe müzik klip';
-      YTPROAndroid.searchVideos(q, 'onVideosLoaded');
-    }
+    const filterMap = {
+      popular: 'türkçe pop klip official music video',
+      new:     'yeni çıkan türkçe müzik klip official',
+      top:     'top 100 türkçe müzik klip official',
+      local:   'türkçe arabesk müzik klip official',
+      trending:'türkçe trend müzik klip official music video'
+    };
+    const q = filterMap[category] || 'türkçe müzik klip official music video';
+    YTPROAndroid.searchVideos(q, 'onVideosLoaded');
   }
 }
 function onVideosLoaded(data) {
@@ -1274,8 +1272,13 @@ function initSongs(category='popular') {
   const el = document.getElementById('songList');
   el.innerHTML = '<div class="section-label">ŞARKILAR YÜKLENİYOR...</div>' + skeletonCards(6) + '<div class="load-more" id="songLoadMore"></div>';
   if (typeof YTPROAndroid !== 'undefined') {
-    const filterMap = { popular:'türkçe pop şarkılar', random:'karışık şarkılar', new:'yeni çıkan şarkılar', top:'en çok dinlenen şarkılar', rap:'türkçe rap şarkılar', rock:'türkçe rock', pop:'pop müzik' };
-    YTPROAndroid.searchWithNewPipe(filterMap[category] || 'türkçe hit müzik audio', 'onSongsLoaded');
+    const filterMap = {
+      popular: 'türkçe pop şarkılar hit', new: 'yeni çıkan türkçe şarkılar',
+      top: 'en çok dinlenen türkçe şarkılar', rap: 'türkçe rap müzik',
+      rock: 'türkçe rock müzik', pop: 'türkçe pop hit müzik'
+    };
+    const q = filterMap[category] || 'türkçe pop hit müzik';
+    YTPROAndroid.searchSongs(q, 'onSongsLoaded');
   }
 }
 function onSongsLoaded(data) {
@@ -1292,16 +1295,21 @@ function checkScroll(type, el) {
   if (loadingMore) return;
   if (el.scrollTop + el.clientHeight >= el.scrollHeight - 300) {
     loadingMore = true; showLoadingBar();
+    // Timeout: 5 saniye içinde veri gelmezse kilidi aç
+    const scrollTimeout = setTimeout(() => { loadingMore = false; hideLoadingBar(); }, 5000);
     if (type === 'video') {
       const filters = {
-        popular: 'türkçe müzik official music video',
+        popular: 'türkçe pop klip official music video',
         new: 'yeni türkçe müzik klip official',
-        top: 'top türkçe müzik klip',
-        local: 'türkçe arabesk klip official music video'
+        top: 'top türkçe müzik klip official',
+        local: 'türkçe arabesk klip official'
       };
       const base = filters[currentVideoFilter] || 'türkçe müzik klip official music video';
-      const q = base + ' ' + (videoPage + 1);
-      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.searchVideos(q, 'onMoreVideosLoaded');
+      const q = base + ' part' + (videoPage + 1);
+      const cbV = '_moreV_' + Date.now();
+      window[cbV] = function(data) { clearTimeout(scrollTimeout); delete window[cbV]; onMoreVideosLoaded(data); };
+      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.searchVideos(q, cbV);
+      else { clearTimeout(scrollTimeout); loadingMore = false; hideLoadingBar(); }
     } else {
       const filters = {
         popular: 'türkçe pop müzik klip', new: 'yeni türkçe şarkılar klip',
@@ -1309,8 +1317,11 @@ function checkScroll(type, el) {
         rock: 'türkçe rock müzik klip', pop: 'türkçe pop müzik klip'
       };
       const base = filters[currentSongFilter] || 'türkçe müzik klip';
-      const q = base + ' ' + (songPage + 1);
-      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.searchSongs(q, 'onMoreSongsLoaded');
+      const q = base + ' part' + (songPage + 1);
+      const cbS = '_moreS_' + Date.now();
+      window[cbS] = function(data) { clearTimeout(scrollTimeout); delete window[cbS]; onMoreSongsLoaded(data); };
+      if(typeof YTPROAndroid !== 'undefined') YTPROAndroid.searchSongs(q, cbS);
+      else { clearTimeout(scrollTimeout); loadingMore = false; hideLoadingBar(); }
     }
   }
 }
@@ -1369,26 +1380,41 @@ function playMedia(type, idx) {
   }
 
   if(typeof YTPROAndroid !== 'undefined') {
-    try { YTPROAndroid.updateMediaSession(m.title || m.t, m.channel || m.a, 'play'); } catch(e){}
+    try {
+      const _thumbUrl = m.thumb || (m.ytId||m.id ? 'https://img.youtube.com/vi/'+(m.ytId||m.id)+'/mqdefault.jpg' : '');
+      YTPROAndroid.updateMediaSession(m.title || m.t || '', m.channel || m.a || m.artist || '', 'play', _thumbUrl);
+    } catch(e){}
     // Stream URL al ve çal
     const videoUrl = m.url || ('https://youtube.com/watch?v=' + (m.ytId || m.id || ''));
     const cbName = '_play_' + Date.now();
     window[cbName] = function(info) {
       delete window[cbName];
-      if (!info) { showToast('⚠ Stream alınamadı'); return; }
-      const streamUrl = info.bestAudioUrl || info.previewVideoUrl || '';
-      if (!streamUrl) { showToast('⚠ Stream bulunamadı'); return; }
+      if (!info) { showToast('⚠ Stream alınamadı'); setPlay(false); return; }
+      // Video için ses+video birleşik URL (360p/720p), ses için en iyi audio URL
+      let streamUrl = '';
+      if (currentMedia && currentMedia.mediaType === 'video') {
+        streamUrl = info.previewVideoUrl || info.videoOnlyUrl || info.bestAudioUrl || '';
+      } else {
+        streamUrl = info.bestAudioUrl || info.previewVideoUrl || '';
+      }
+      if (!streamUrl) { showToast('⚠ Stream bulunamadı'); setPlay(false); return; }
       // Mevcut audio tag varsa durdur
-      if (window._ytproAudio) { try { window._ytproAudio.pause(); } catch(e){} }
-      const audio = new Audio(streamUrl);
-      audio.crossOrigin = 'anonymous';
+      if (window._ytproAudio) { try { window._ytproAudio.pause(); window._ytproAudio.src=''; } catch(e){} }
+      const audio = new Audio();
+      audio.preload = 'auto';
+      // User-Agent sorunu: crossOrigin kullanma, YouTube CORS'u reddedebilir
       window._ytproAudio = audio;
-      audio.play().then(() => {
-        setPlay(true);
-        showToast('▶ ' + (m.title || m.t || ''));
-      }).catch(err => {
-        showToast('⚠ Oynatılamadı: ' + err.message);
-      });
+      audio.src = streamUrl;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          setPlay(true);
+          showToast('▶ ' + (m.title || m.t || ''));
+        }).catch(err => {
+          showToast('⚠ Oynatılamadı');
+          setPlay(false);
+        });
+      }
       audio.ontimeupdate = () => {
         if (!audio.duration) return;
         const p = (audio.currentTime / audio.duration) * 100;
@@ -1407,14 +1433,24 @@ function playMedia(type, idx) {
   playerPanelEl.classList.add('visible');
   // setPlay(true) stream callback içinde çağrılıyor
 
-  // Kalp ve indirme butonunu sıfırla
+  // Kalp butonunu güncelle - favoride mi kontrol et
   const favBtn = document.getElementById('playerFavBtn');
   const favIcon = document.getElementById('playerFavIcon');
   if (favBtn && favIcon) {
-    favIcon.setAttribute('fill', 'none');
-    favIcon.setAttribute('stroke', 'currentColor');
-    favBtn.style.borderColor = '';
-    favBtn.style.background = '';
+    const ytId = m.ytId || m.id || '';
+    const favItems = loadPlaylistItems('favoriler');
+    const isFav = ytId && favItems.some(f => f.ytId === ytId);
+    if (isFav) {
+      favIcon.setAttribute('fill', 'var(--accent)');
+      favIcon.setAttribute('stroke', 'var(--accent)');
+      favBtn.style.borderColor = 'var(--accent)';
+      favBtn.style.background = 'rgba(229,9,20,0.12)';
+    } else {
+      favIcon.setAttribute('fill', 'none');
+      favIcon.setAttribute('stroke', 'currentColor');
+      favBtn.style.borderColor = '';
+      favBtn.style.background = '';
+    }
   }
   const dlBtn = document.getElementById('playerDlBtn');
   if (dlBtn) { dlBtn.classList.remove('downloading','done-dl'); const ri = dlBtn.querySelector('.ring-fill'); if(ri) ri.style.strokeDashoffset='69.1'; dlBtn.querySelector('.dl-done-icon').style.display='none'; dlBtn.querySelector('.dl-icon').style.display=''; dlBtn.querySelector('.dl-progress-ring').style.display='none'; }
@@ -1690,22 +1726,42 @@ function downloadError(tid, msg) {
 // ══ PLAYER KALP & İNDİRME BUTONLARI ══
 function addCurrentToFavorites() {
   if (!currentMedia) { showToast('Önce bir şarkı seç'); return; }
-  const item = {
-    title: currentMedia.title || currentMedia.t || 'Bilinmiyor',
-    ytId: currentMedia.ytId || currentMedia.id || '',
-    thumb: currentMedia.thumb || '',
-    channel: currentMedia.channel || currentMedia.a || currentMedia.artist || '',
-    type: currentMedia.mediaType || 'song'
-  };
-  addToPlaylist('favoriler', item);
-  const btn = document.getElementById('playerFavBtn');
+  const ytId = currentMedia.ytId || currentMedia.id || '';
+  const btn  = document.getElementById('playerFavBtn');
   const icon = document.getElementById('playerFavIcon');
-  if (btn && icon) {
-    icon.setAttribute('fill', 'var(--accent)');
-    icon.setAttribute('stroke', 'var(--accent)');
-    btn.style.borderColor = 'var(--accent)';
-    btn.style.background = 'rgba(229,9,20,0.12)';
+  // Favoride mi kontrol et
+  const favItems = loadPlaylistItems('favoriler');
+  const existIdx = favItems.findIndex(f => f.ytId === ytId);
+  if (existIdx !== -1) {
+    // Favoriden çıkar
+    favItems.splice(existIdx, 1);
+    savePlaylistItems('favoriler', favItems);
+    showToast('💔 Favorilerden çıkarıldı');
+    if (btn && icon) {
+      icon.setAttribute('fill', 'none');
+      icon.setAttribute('stroke', 'currentColor');
+      btn.style.borderColor = '';
+      btn.style.background = '';
+    }
+  } else {
+    // Favoriye ekle
+    const item = {
+      title: currentMedia.title || currentMedia.t || 'Bilinmiyor',
+      ytId: ytId,
+      thumb: currentMedia.thumb || '',
+      channel: currentMedia.channel || currentMedia.a || currentMedia.artist || '',
+      type: currentMedia.mediaType || 'song'
+    };
+    addToPlaylist('favoriler', item);
+    showToast('❤ Favorilere eklendi');
+    if (btn && icon) {
+      icon.setAttribute('fill', 'var(--accent)');
+      icon.setAttribute('stroke', 'var(--accent)');
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.background = 'rgba(229,9,20,0.12)';
+    }
   }
+  updateFavBadge();
 }
 
 function downloadCurrentMedia(btn) {
@@ -1828,6 +1884,7 @@ function openFile(id) {
 }
 function openDlFolder(id){ try{ if(typeof YTPROAndroid!=='undefined') YTPROAndroid.openDownloadsFolder(); else showToast('📁 İndirilenler klasörü'); } catch(e){} }
 function updateDlBadge(){ document.getElementById('dlBadge').textContent=Object.keys(downloads).length; }
+function updateFavBadge(){ const favItems = loadPlaylistItems('favoriler'); const el = document.getElementById('favBadge'); if(el) el.textContent = favItems.length; }
 
 // ══ SAYFA SWIPE DISMISS (aşağı çek veya sağdan sola = kapat) ══
 function addSwipeToDismiss(pageId, closeFunc) {
@@ -2099,8 +2156,11 @@ window.handleAndroidBack = function() {
 
   main.addEventListener('touchstart', e => {
     const list = document.querySelector('.tab-panel.active .list-area');
-    if (!list || list.scrollTop > 4) return;
-    startY = e.touches[0].clientY;
+    if (!list || list.scrollTop > 5) { pulling = false; return; }
+    // Sadece liste en üstteyken ve parmak üst %25'te başlıyorsa
+    const touchY = e.touches[0].clientY;
+    if (touchY > window.innerHeight * 0.4) { pulling = false; return; }
+    startY = touchY;
     pulling = true;
   }, {passive: true});
 
