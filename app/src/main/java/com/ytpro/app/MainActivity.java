@@ -218,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
             executor.execute(() -> {
                 try {
                     String q = (query == null || query.isEmpty())
-                        ? "ytsearch20:türkçe müzik klip 2024" : "ytsearch20:" + query;
+                        ? "ytsearch20:türkçe müzik klip official" : "ytsearch20:" + query;
                     String raw = runYtDlp("--dump-json","--flat-playlist","--no-warnings","--socket-timeout","15", q);
                     JSONArray res = new JSONArray();
                     for (String line : raw.split("\n")) {
@@ -250,7 +250,7 @@ public class MainActivity extends AppCompatActivity {
             executor.execute(() -> {
                 try {
                     String q = (query == null || query.isEmpty())
-                        ? "ytsearch20:türkçe pop şarkılar 2024" : "ytsearch20:" + query;
+                        ? "ytsearch20:türkçe pop şarkılar audio" : "ytsearch20:" + query;
                     String raw = runYtDlp("--dump-json","--flat-playlist","--no-warnings","--socket-timeout","15", q);
                     JSONArray res = new JSONArray();
                     int idx = 1;
@@ -336,14 +336,14 @@ public class MainActivity extends AppCompatActivity {
         public void searchVideos(String query, String cb) {
             executor.execute(() -> {
                 try {
-                    JSONArray r = NewPipeService.search(query);
+                    JSONArray r = NewPipeService.search(query + " official music video"); // Sadece Klipler
                     if (r.length() > 0) {
                         String json = r.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
                         return;
                     }
                 } catch (Exception ignored) {}
-                fetchTrendingVideos(query, cb);
+                fetchTrendingVideos(query + " official music video", cb);
             });
         }
 
@@ -351,14 +351,14 @@ public class MainActivity extends AppCompatActivity {
         public void searchSongs(String query, String cb) {
             executor.execute(() -> {
                 try {
-                    JSONArray r = NewPipeService.search(query);
+                    JSONArray r = NewPipeService.search(query + " audio");
                     if (r.length() > 0) {
                         String json = r.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
                         return;
                     }
                 } catch (Exception ignored) {}
-                fetchTrendingSongs(query, cb);
+                fetchTrendingSongs(query + " audio", cb);
             });
         }
 
@@ -371,7 +371,7 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public void startDownload(final String url, final String quality, final String type, final String title, final String tid) {
-            runOnUiThread(() -> webView.evaluateJavascript("showToast('⏳ Medya kaynağı çözümleniyor...');", null));
+            runOnUiThread(() -> webView.evaluateJavascript("showToast('⏳ Çözümleniyor...');", null));
 
             new Thread(() -> {
                 try {
@@ -402,14 +402,15 @@ public class MainActivity extends AppCompatActivity {
                     conn.connect();
 
                     int fileLength = conn.getContentLength();
-                    java.io.InputStream input = new java.io.BufferedInputStream(urlObj.openStream());
+                    // MAX İNDİRME HIZI İÇİN BUFFER GENİŞLETİLDİ (128 KB)
+                    java.io.InputStream input = new java.io.BufferedInputStream(urlObj.openStream(), 131072);
                     
                     java.io.File dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
                     String safeTitle = title.replaceAll("[\\\\/:*?\"<>|]", "_");
                     java.io.File file = new java.io.File(dir, safeTitle + ext);
                     java.io.OutputStream output = new java.io.FileOutputStream(file);
 
-                    byte[] data = new byte[8192];
+                    byte[] data = new byte[131072]; // 128KB CHUNK
                     long total = 0;
                     int count;
                     int lastPct = -1;
@@ -443,7 +444,6 @@ public class MainActivity extends AppCompatActivity {
             }).start();
         }
 
-        // Klasör açma komutu (HTML'deki Dosyada Göster butonu için)
         @JavascriptInterface
         public void openDownloadsFolder() {
             Intent intent = new Intent(Intent.ACTION_VIEW);
