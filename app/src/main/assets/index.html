@@ -747,7 +747,6 @@ body{
 <div class="overlay" id="overlay" onclick="closeDrawer()"></div>
 <div class="toast" id="toast"></div>
 
-<!-- ═══ DRAWER ═══ -->
 <div class="drawer" id="drawer">
   <div class="drawer-top">
     <div class="drawer-logo">YT<span>-</span>PRO</div>
@@ -774,7 +773,6 @@ body{
       <div class="d-text"><div class="d-label">Sinema</div><div class="d-sub">Filmler & Klipler</div></div>
     </div>
     <div class="drawer-divider"></div>
-    <!-- Kullanıcı çalma listeleri dinamik olarak buraya eklenir -->
     <div id="userPlaylistsSection"></div>
     <div class="drawer-item" onclick="openCreatePlaylistModal()" style="border:1px dashed var(--border);border-radius:8px;margin:4px 0;">
       <div class="d-icon">➕</div>
@@ -817,7 +815,6 @@ body{
   </div>
 </div>
 
-<!-- ═══ TOPBAR ═══ -->
 <div class="topbar">
   <div class="topbar-left">
     <button class="menu-btn" id="menuBtn" onclick="toggleDrawer()">
@@ -836,15 +833,12 @@ body{
   </div>
 </div>
 
-<!-- ═══ TABS ═══ -->
 <div class="tabs">
   <button class="tab-btn active" id="tab-videos" onclick="switchTab('videos')">▶ VİDEOLAR</button>
   <button class="tab-btn" id="tab-songs" onclick="switchTab('songs')">♪ ŞARKILAR</button>
 </div>
 
-<!-- ═══ MAIN ═══ -->
 <div class="main">
-  <!-- VIDEOS -->
   <div class="tab-panel active" id="panel-videos">
     <div class="search-area">
       <div class="search-wrap">
@@ -863,7 +857,6 @@ body{
     </div>
     <div class="list-area" id="videoList" onscroll="checkScroll('video',this)"></div>
   </div>
-  <!-- SONGS -->
   <div class="tab-panel" id="panel-songs">
     <div class="search-area">
       <div class="search-wrap">
@@ -885,7 +878,6 @@ body{
   </div>
 </div>
 
-<!-- ═══ BOTTOM BAR ═══ -->
 <div class="bottombar">
   <button class="bot-btn" onclick="togglePlaylist()">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h13v-2H3v2zm0-5h10v-2H3v2zm0-7v2h13V6H3zm18 9.59L17.42 12 21 8.41 19.59 7l-5 5 5 5L21 15.59z"/></svg>
@@ -901,7 +893,6 @@ body{
   </button>
 </div>
 
-<!-- ═══ PLAYER PANEL ═══ -->
 <div class="player-panel" id="playerPanel">
   <button class="player-close" onclick="togglePlayer()">✕</button>
   <div class="player-now">
@@ -953,7 +944,6 @@ body{
 </div>
 
 
-<!-- ═══ ÇALMA LİSTESİ SAYFASI ═══ -->
 <div class="pl-page" id="plPage">
   <div class="pl-page-head">
     <button class="pl-page-back" onclick="closePlPage()">←</button>
@@ -963,7 +953,6 @@ body{
   <div class="pl-page-body" id="plPageBody"></div>
 </div>
 
-<!-- ═══ ÇALMA LİSTESİ OLUŞTUR MODAL ═══ -->
 <div class="modal-overlay" id="createPlModal">
   <div class="modal" style="max-width:360px;">
     <div class="modal-head">
@@ -996,7 +985,6 @@ body{
     </div>
   </div>
 </div>
-<!-- ═══ DOWNLOADS PAGE (TAM SAYFA) ═══ -->
 <div class="dl-page" id="dlPage">
   <div class="dl-page-head">
     <button class="dl-page-back" onclick="closeDlPage()">←</button>
@@ -1006,7 +994,6 @@ body{
   <div class="dl-page-body" id="dlPageBody"></div>
 </div>
 
-<!-- ═══ PLAYLIST PANEL ═══ -->
 <div class="pl-panel" id="plPanel">
   <div class="panel-head">
     <span>ÇALMA LİSTESİ</span>
@@ -1015,7 +1002,6 @@ body{
   <div id="plList"></div>
 </div>
 
-<!-- ═══ SETTINGS MODAL ═══ -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal">
     <div class="modal-head">
@@ -1030,7 +1016,6 @@ body{
         <button class="toggle on" id="darkToggle" onclick="toggleDark()"></button>
       </div>
 
-      <!-- TEMA SEÇİCİ -->
       <div class="modal-section">TEMA</div>
       <div class="theme-grid">
         <button class="theme-btn active" onclick="applyTheme('dark',this)">
@@ -1059,7 +1044,6 @@ body{
         </button>
       </div>
 
-      <!-- CUSTOM TEMA -->
       <div class="modal-section">CUSTOM TEMA</div>
       <div class="custom-tema">
         <div class="color-row">
@@ -1118,7 +1102,6 @@ body{
   </div>
 </div>
 
-<!-- URL Modal -->
 <div class="modal-overlay" id="urlModal">
   <div class="modal" style="max-width:360px;">
     <div class="modal-head">
@@ -1174,7 +1157,7 @@ function showNoDataMessage(elId, type) {
     ? 'VERİ ALINAMADI'
     : 'İNTERNET BAĞLANTISI YOK';
   const sub     = isOnline
-    ? "YouTube'a bağlanılamadı. Lütfen tekrar deneyin."
+    ? 'YouTube\'a bağlanılamadı. Lütfen tekrar deneyin.'
     : 'İnternete bağlanıp tekrar deneyin.';
   const btnText = type === 'video' ? "initVideos()" : "initSongs()";
   el.innerHTML = `
@@ -1698,6 +1681,7 @@ function startRealDl(title, url, ytId, type, quality) {
     showToast('⚠ Android gerekli');
   }
 }
+
 function dlSong(e,i){
   e.stopPropagation();
   const s=songData[i];
@@ -2223,23 +2207,44 @@ function addToPlaylist(plId, item) {
 function showAddToPlaylistMenu(item) {
   const allPls = { ...FIXED_PLAYLISTS, ...loadUserPlaylists() };
   const keys = Object.keys(allPls);
+  
   const existing = document.getElementById('addToPlMenu');
   if (existing) existing.remove();
+  
   const menu = document.createElement('div');
   menu.id = 'addToPlMenu';
-  menu.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;display:flex;align-items:flex-end;';
+  menu.style.cssText = `position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:2000;display:flex;align-items:flex-end;`;
+  
   menu.innerHTML = `
-    <div style="width:100%;background:var(--bg2);border-top:1px solid var(--border);border-radius:16px 16px 0 0;padding:16px;max-height:70vh;overflow-y:auto;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--white);margin-bottom:14px;text-align:center;">LİSTEYE EKLE</div>
+    <div style="width:100%;background:var(--bg2);border-top:1px solid var(--border);
+                border-radius:16px 16px 0 0;padding:16px;max-height:70vh;overflow-y:auto;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;
+                  color:var(--white);margin-bottom:14px;text-align:center;">
+        LİSTEYE EKLE
+      </div>
       ${keys.map(k => `
-        <div data-plkey="${k}" style="display:flex;gap:10px;align-items:center;padding:12px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:4px;transition:var(--tr);">
+        <div data-plkey="${k}"
+          style="display:flex;gap:10px;align-items:center;padding:12px 10px;border-radius:8px;
+                 cursor:pointer;border:1px solid transparent;margin-bottom:4px;
+                 transition:var(--tr);"
+          onmousedown="this.style.background='rgba(229,9,20,.1)';this.style.borderColor='var(--border)'">
           <span style="font-size:20px;">${allPls[k].emoji}</span>
-          <span style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);">${allPls[k].name}</span>
-          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gray);">${loadPlaylistItems(k).length} öğe</span>
+          <span style="font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;color:var(--text);">
+            ${allPls[k].name}
+          </span>
+          <span style="margin-left:auto;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gray);">
+            ${loadPlaylistItems(k).length} öğe
+          </span>
         </div>`).join('')}
-      <button onclick="document.getElementById('addToPlMenu').remove()" style="width:100%;padding:12px;border-radius:8px;background:var(--bg3);border:none;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--text);margin-top:6px;">İPTAL</button>
+      <button onclick="document.getElementById('addToPlMenu').remove()"
+        style="width:100%;padding:12px;border-radius:8px;background:var(--gray2);border:none;
+               cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:16px;
+               letter-spacing:2px;color:var(--text);margin-top:6px;">
+        İPTAL
+      </button>
     </div>`;
   document.body.appendChild(menu);
+  
   menu.querySelectorAll('[data-plkey]').forEach(btn => {
     btn.addEventListener('click', () => {
       const k = btn.dataset.plkey;
@@ -2248,9 +2253,7 @@ function showAddToPlaylistMenu(item) {
       if(m) m.remove();
     });
   });
-  menu.addEventListener('click', e => { if(e.target === menu) menu.remove(); });
 }
-
 
 // ── Çalma listesi oluşturma ──────────────────────
 const EMOJIS = ['🎵','🎬','⭐','🔥','🎸','🎤','💫','🌙','🎹','🎺','🏆','❤️','🎮','🎧','🌊'];
@@ -2261,7 +2264,7 @@ function openCreatePlaylistModal() {
   selectedEmoji = '🎵';
   // Emoji picker'ı doldur
   const picker = document.getElementById('plEmojiPicker');
-  picker.innerHTML = '<span style="font-size:11px;font-family:"Share Tech Mono",monospace;color:var(--gray);width:100%;">İKON SEÇ:</span>'
+  picker.innerHTML = `<span style="font-size:11px;font-family:'Share Tech Mono',monospace;color:var(--gray);width:100%;">İKON SEÇ:</span>`
     + EMOJIS.map(e => `
       <span onclick="selectEmoji('${e}',this)"
         style="font-size:22px;cursor:pointer;padding:5px;border-radius:6px;
