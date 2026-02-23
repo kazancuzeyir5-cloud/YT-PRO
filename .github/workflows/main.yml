@@ -22,24 +22,31 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install Gradle 8.4
-      run: |
-        wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip -O /tmp/gradle.zip
-        unzip -q /tmp/gradle.zip -d /opt
-        echo "/opt/gradle-8.4/bin" >> $GITHUB_PATH
+    - name: Cache Gradle packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          ${{ runner.os }}-gradle-
 
     - name: Download yt-dlp
       run: |
         mkdir -p app/src/main/assets
-        curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" \
+        curl -L "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" \
           -o app/src/main/assets/yt-dlp
         chmod +x app/src/main/assets/yt-dlp
 
     - name: Create local.properties
       run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
+    - name: Grant execute permission for gradlew
+      run: chmod +x ./gradlew
+
     - name: Build APK
-      run: gradle assembleDebug --no-daemon
+      run: ./gradlew assembleDebug --no-daemon
       env:
         GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2g"
 
