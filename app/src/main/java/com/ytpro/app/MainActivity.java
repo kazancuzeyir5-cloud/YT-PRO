@@ -179,7 +179,7 @@ public class MainActivity extends AppCompatActivity {
             String text = intent.getStringExtra(Intent.EXTRA_TEXT);
             if (text != null && (text.contains("youtube.com") || text.contains("youtu.be"))) {
                 webView.post(() -> webView.evaluateJavascript(
-                    "handleSharedUrl('" + text.replace("'", "\\'") + "')", null));
+                    "handleSharedUrl('" + text.replace("'", "\'") + "')", null));
             }
         }
     }
@@ -188,16 +188,13 @@ public class MainActivity extends AppCompatActivity {
     public void onBackPressed() {
         webView.evaluateJavascript(
             "javascript:typeof handleAndroidBack === 'function' ? handleAndroidBack() : false",
-            new ValueCallback<String>() {
-                @Override
-                public void onReceiveValue(String value) {
-                    if ("true".equals(value)) {
-                        return;
-                    } else if (webView.canGoBack()) {
-                        webView.goBack();
-                    } else {
-                        MainActivity.super.onBackPressed();
-                    }
+            value -> {
+                if ("true".equals(value)) {
+                    // HTML halletti
+                } else if (webView.canGoBack()) {
+                    webView.goBack();
+                } else {
+                    MainActivity.super.onBackPressed();
                 }
             });
     }
@@ -310,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
                     android.util.Log.w("YTPROBridge", "NewPipe search failed: " + e.getMessage());
                 }
                 runOnUiThread(() -> webView.evaluateJavascript(
-                    "onNewPipeSearchFailed('" + query.replace("'","\\'") + "','" + cb + "')", null));
+                    "onNewPipeSearchFailed('" + query.replace("'","\'") + "','" + cb + "')", null));
             });
         }
 
@@ -336,7 +333,7 @@ public class MainActivity extends AppCompatActivity {
         public void searchVideos(String query, String cb) {
             executor.execute(() -> {
                 try {
-                    JSONArray r = NewPipeService.search(query + " official music video"); // Sadece Klipler
+                    JSONArray r = NewPipeService.search(query + " official music video");
                     if (r.length() > 0) {
                         String json = r.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
@@ -375,8 +372,10 @@ public class MainActivity extends AppCompatActivity {
 
             new Thread(() -> {
                 try {
-                    org.schabi.newpipe.extractor.stream.StreamInfo streamInfo = org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(org.schabi.newpipe.extractor.ServiceList.YouTube, url);
-                    
+                    org.schabi.newpipe.extractor.stream.StreamInfo streamInfo =
+                        org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(
+                            org.schabi.newpipe.extractor.ServiceList.YouTube, url);
+
                     String downloadUrl = "";
                     String ext = type.equals("audio") ? ".m4a" : ".mp4";
 
@@ -393,24 +392,28 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     if (downloadUrl.isEmpty()) {
-                        runOnUiThread(() -> webView.evaluateJavascript("downloadError('" + tid + "', 'Kaynak bulunamadı');", null));
+                        runOnUiThread(() -> webView.evaluateJavascript(
+                            "downloadError('" + tid + "', 'Kaynak bulunamadı');", null));
                         return;
                     }
 
                     java.net.URL urlObj = new java.net.URL(downloadUrl);
                     java.net.HttpURLConnection conn = (java.net.HttpURLConnection) urlObj.openConnection();
+                    conn.setRequestProperty("User-Agent",
+                        "Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 Chrome/91.0");
                     conn.connect();
 
                     int fileLength = conn.getContentLength();
-                    // MAX İNDİRME HIZI İÇİN BUFFER GENİŞLETİLDİ (128 KB)
-                    java.io.InputStream input = new java.io.BufferedInputStream(urlObj.openStream(), 131072);
-                    
-                    java.io.File dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
+                    java.io.InputStream input = new java.io.BufferedInputStream(
+                        conn.getInputStream(), 131072);
+
+                    java.io.File dir = Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS);
                     String safeTitle = title.replaceAll("[\\\\/:*?\"<>|]", "_");
                     java.io.File file = new java.io.File(dir, safeTitle + ext);
                     java.io.OutputStream output = new java.io.FileOutputStream(file);
 
-                    byte[] data = new byte[131072]; // 128KB CHUNK
+                    byte[] data = new byte[131072];
                     long total = 0;
                     int count;
                     int lastPct = -1;
@@ -418,41 +421,103 @@ public class MainActivity extends AppCompatActivity {
 
                     while ((count = input.read(data)) != -1) {
                         total += count;
-                        int pct = (int) ((total * 100) / fileLength);
-                        
-                        if (pct > lastPct) {
-                            lastPct = pct;
-                            long elapsed = System.currentTimeMillis() - startTime;
-                            double speed = elapsed > 0 ? ((double) total / 1024 / 1024) / (elapsed / 1000.0) : 0;
-                            String speedStr = String.format(java.util.Locale.US, "%.1f MB/s", speed);
-                            
-                            runOnUiThread(() -> webView.evaluateJavascript("updateDownloadProgress('" + tid + "', " + pct + ", '" + speedStr + "');", null));
-                        }
                         output.write(data, 0, count);
+                        if (fileLength > 0) {
+                            int pct = (int) ((total * 100) / fileLength);
+                            if (pct > lastPct) {
+                                lastPct = pct;
+                                long elapsed = System.currentTimeMillis() - startTime;
+                                double speed = elapsed > 0
+                                    ? ((double) total / 1048576.0) / (elapsed / 1000.0) : 0;
+                                String speedStr = String.format(
+                                    java.util.Locale.US, "%.1f MB/s", speed);
+                                final int finalPct = pct;
+                                final String finalSpeed = speedStr;
+                                runOnUiThread(() -> webView.evaluateJavascript(
+                                    "updateDownloadProgress('" + tid + "'," + finalPct + ",'" + finalSpeed + "');", null));
+                            }
+                        }
                     }
 
                     output.flush();
                     output.close();
                     input.close();
+                    conn.disconnect();
 
-                    runOnUiThread(() -> webView.evaluateJavascript("downloadComplete('" + tid + "', '" + file.getAbsolutePath() + "');", null));
+                    final String filePath = file.getAbsolutePath();
+                    runOnUiThread(() -> webView.evaluateJavascript(
+                        "downloadComplete('" + tid + "','" + filePath + "');", null));
 
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    runOnUiThread(() -> webView.evaluateJavascript("downloadError('" + tid + "', 'Bağlantı koptu');", null));
+                    android.util.Log.e("YTPROBridge", "Download error: " + e.getMessage(), e);
+                    runOnUiThread(() -> webView.evaluateJavascript(
+                        "downloadError('" + tid + "','İndirme başarısız');", null));
                 }
             }).start();
+        }
+
+        // ── Dosyayı sistem medya oynatıcısıyla aç ──
+        @JavascriptInterface
+        public void openFile(final String filePath) {
+            try {
+                File file = new File(filePath);
+                if (!file.exists()) {
+                    runOnUiThread(() -> Toast.makeText(
+                        activity, "Dosya bulunamadı", Toast.LENGTH_SHORT).show());
+                    return;
+                }
+                String lp = filePath.toLowerCase();
+                String mimeType = (lp.endsWith(".mp4") || lp.endsWith(".mkv") || lp.endsWith(".webm"))
+                    ? "video/*" : "audio/*";
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                        activity, activity.getPackageName() + ".provider", file);
+                    intent.setDataAndType(uri, mimeType);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } else {
+                    intent.setDataAndType(Uri.fromFile(file), mimeType);
+                }
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                activity.startActivity(Intent.createChooser(intent, "Aç"));
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(
+                    activity, "Açılamadı: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            }
+        }
+
+        // ── Arka plan oynatma ──
+        @JavascriptInterface
+        public void setBgPlay(boolean enabled) {
+            if (mediaServiceBound && mediaService != null) {
+                android.util.Log.d("YTPROBridge", "setBgPlay: " + enabled);
+            }
+        }
+
+        // ── Uygulamadan çık ──
+        @JavascriptInterface
+        public void exitApp() {
+            runOnUiThread(() -> {
+                if (mediaServiceBound) {
+                    unbindService(mediaConn);
+                    mediaServiceBound = false;
+                }
+                try { unregisterReceiver(mediaControlReceiver); } catch (Exception ignored) {}
+                finishAffinity();
+            });
         }
 
         @JavascriptInterface
         public void openDownloadsFolder() {
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            Uri uri = Uri.parse(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toURI().toString());
+            Uri uri = Uri.parse(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS).toURI().toString());
             intent.setDataAndType(uri, "*/*");
             try {
                 activity.startActivity(intent);
             } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(activity, "Dosya yöneticisi bulunamadı", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(
+                    activity, "Dosya yöneticisi bulunamadı", Toast.LENGTH_SHORT).show());
             }
         }
 
