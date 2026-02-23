@@ -40,7 +40,6 @@ public class MainActivity extends AppCompatActivity {
     private String ytDlpPath;
     private final ExecutorService executor = Executors.newFixedThreadPool(4);
 
-    // MediaPlayerService bağlantısı
     private MediaPlayerService mediaService;
     private boolean mediaServiceBound = false;
 
@@ -210,9 +209,6 @@ public class MainActivity extends AppCompatActivity {
         try { unregisterReceiver(mediaControlReceiver); } catch (Exception ignored) {}
     }
 
-    // ══════════════════════════════════════
-    // JavaScript Köprüsü
-    // ══════════════════════════════════════
     public class YTPROBridge {
         private final Activity activity;
         YTPROBridge(Activity a) { this.activity = a; }
@@ -222,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
             executor.execute(() -> {
                 try {
                     String q = (query == null || query.isEmpty())
-                        ? "ytsearch20:türkçe müzik 2024" : "ytsearch20:" + query;
+                        ? "ytsearch20:türkçe müzik klip 2024" : "ytsearch20:" + query;
                     String raw = runYtDlp("--dump-json","--flat-playlist","--no-warnings","--socket-timeout","15", q);
                     JSONArray res = new JSONArray();
                     for (String line : raw.split("\n")) {
@@ -254,7 +250,7 @@ public class MainActivity extends AppCompatActivity {
             executor.execute(() -> {
                 try {
                     String q = (query == null || query.isEmpty())
-                        ? "ytsearch20:türkçe müzik klip 2024" : "ytsearch20:" + query + " müzik";
+                        ? "ytsearch20:türkçe pop şarkılar 2024" : "ytsearch20:" + query;
                     String raw = runYtDlp("--dump-json","--flat-playlist","--no-warnings","--socket-timeout","15", q);
                     JSONArray res = new JSONArray();
                     int idx = 1;
@@ -267,7 +263,7 @@ public class MainActivity extends AppCompatActivity {
                             s.put("ytId",     it.optString("id",""));
                             s.put("title",    it.optString("title","Başlıksız"));
                             s.put("artist",   it.optString("uploader", it.optString("channel","Sanatçı")));
-                            s.put("album",    "YouTube");
+                            s.put("album",    "Müzik");
                             s.put("duration", formatDuration(it.optInt("duration",0)));
                             s.put("thumb",    it.optString("thumbnail",""));
                             s.put("url",      "https://youtube.com/watch?v=" + it.optString("id",""));
@@ -355,7 +351,7 @@ public class MainActivity extends AppCompatActivity {
         public void searchSongs(String query, String cb) {
             executor.execute(() -> {
                 try {
-                    JSONArray r = NewPipeService.search(query + " müzik");
+                    JSONArray r = NewPipeService.search(query);
                     if (r.length() > 0) {
                         String json = r.toString();
                         runOnUiThread(() -> webView.evaluateJavascript(cb + "(" + json + ")", null));
@@ -373,22 +369,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        // ── GERÇEK İNDİRME - HTML animasyonuyla tam entegre ──
         @JavascriptInterface
-        public void startDownload(final String url, final String quality,
-                                   final String type, final String title, final String tid) {
-            runOnUiThread(() -> webView.evaluateJavascript(
-                "showToast('⏳ Medya kaynağı çözümleniyor...');", null));
+        public void startDownload(final String url, final String quality, final String type, final String title, final String tid) {
+            runOnUiThread(() -> webView.evaluateJavascript("showToast('⏳ Medya kaynağı çözümleniyor...');", null));
 
             new Thread(() -> {
                 try {
-                    // 1. NewPipe ile stream URL'si çöz
-                    org.schabi.newpipe.extractor.stream.StreamInfo streamInfo =
-                        org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(
-                            org.schabi.newpipe.extractor.ServiceList.YouTube, url);
-
+                    org.schabi.newpipe.extractor.stream.StreamInfo streamInfo = org.schabi.newpipe.extractor.stream.StreamInfo.getInfo(org.schabi.newpipe.extractor.ServiceList.YouTube, url);
+                    
                     String downloadUrl = "";
-                    String ext = (type.equals("audio") || type.equals("mp3")) ? ".m4a" : ".mp4";
+                    String ext = type.equals("audio") ? ".m4a" : ".mp4";
 
                     if (type.equals("audio") || type.equals("mp3")) {
                         if (!streamInfo.getAudioStreams().isEmpty()) {
@@ -403,138 +393,78 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     if (downloadUrl.isEmpty()) {
-                        runOnUiThread(() -> webView.evaluateJavascript(
-                            "downloadError('" + tid + "', 'Kaynak bulunamadı');", null));
+                        runOnUiThread(() -> webView.evaluateJavascript("downloadError('" + tid + "', 'Kaynak bulunamadı');", null));
                         return;
                     }
 
-                    // 2. HTTP bağlantısı kur
                     java.net.URL urlObj = new java.net.URL(downloadUrl);
-                    java.net.HttpURLConnection conn =
-                        (java.net.HttpURLConnection) urlObj.openConnection();
-                    conn.setRequestProperty("User-Agent",
-                        "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36");
+                    java.net.HttpURLConnection conn = (java.net.HttpURLConnection) urlObj.openConnection();
                     conn.connect();
 
-                    long fileLength = conn.getContentLengthLong();
-                    java.io.InputStream input =
-                        new java.io.BufferedInputStream(conn.getInputStream(), 65536);
-
-                    // 3. İndirilenler klasörüne kaydet
-                    File dir = Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS);
-                    if (!dir.exists()) dir.mkdirs();
+                    int fileLength = conn.getContentLength();
+                    java.io.InputStream input = new java.io.BufferedInputStream(urlObj.openStream());
+                    
+                    java.io.File dir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS);
                     String safeTitle = title.replaceAll("[\\\\/:*?\"<>|]", "_");
-                    File file = new File(dir, safeTitle + ext);
+                    java.io.File file = new java.io.File(dir, safeTitle + ext);
                     java.io.OutputStream output = new java.io.FileOutputStream(file);
 
-                    byte[] data = new byte[65536];
+                    byte[] data = new byte[8192];
                     long total = 0;
                     int count;
                     int lastPct = -1;
                     long startTime = System.currentTimeMillis();
 
-                    // 4. Her chunk'ta HTML'e % gönder
                     while ((count = input.read(data)) != -1) {
-                        output.write(data, 0, count);
                         total += count;
-
-                        if (fileLength > 0) {
-                            int pct = (int) ((total * 100) / fileLength);
-                            if (pct != lastPct) {
-                                lastPct = pct;
-                                long elapsed = System.currentTimeMillis() - startTime;
-                                double speed = elapsed > 0
-                                    ? ((double) total / 1048576.0) / (elapsed / 1000.0) : 0;
-                                String speedStr = String.format(
-                                    java.util.Locale.US, "%.1f MB/s", speed);
-                                final int finalPct = pct;
-                                final String finalSpeed = speedStr;
-                                runOnUiThread(() -> webView.evaluateJavascript(
-                                    "updateDownloadProgress('" + tid + "'," +
-                                    finalPct + ",'" + finalSpeed + "');", null));
-                            }
+                        int pct = (int) ((total * 100) / fileLength);
+                        
+                        if (pct > lastPct) {
+                            lastPct = pct;
+                            long elapsed = System.currentTimeMillis() - startTime;
+                            double speed = elapsed > 0 ? ((double) total / 1024 / 1024) / (elapsed / 1000.0) : 0;
+                            String speedStr = String.format(java.util.Locale.US, "%.1f MB/s", speed);
+                            
+                            runOnUiThread(() -> webView.evaluateJavascript("updateDownloadProgress('" + tid + "', " + pct + ", '" + speedStr + "');", null));
                         }
+                        output.write(data, 0, count);
                     }
+
                     output.flush();
                     output.close();
                     input.close();
-                    conn.disconnect();
 
-                    // 5. Tamamlandı - yeşil tik
-                    final String filePath = file.getAbsolutePath();
-                    runOnUiThread(() -> webView.evaluateJavascript(
-                        "downloadComplete('" + tid + "','" + filePath + "');", null));
+                    runOnUiThread(() -> webView.evaluateJavascript("downloadComplete('" + tid + "', '" + file.getAbsolutePath() + "');", null));
 
                 } catch (Exception e) {
                     e.printStackTrace();
-                    final String errMsg = e.getMessage() != null
-                        ? e.getMessage().replace("'", "") : "Bağlantı hatası";
-                    runOnUiThread(() -> webView.evaluateJavascript(
-                        "downloadError('" + tid + "','" + errMsg + "');", null));
+                    runOnUiThread(() -> webView.evaluateJavascript("downloadError('" + tid + "', 'Bağlantı koptu');", null));
                 }
             }).start();
         }
 
-        // Dosyayı sistem medya oynatıcısıyla aç
-        @JavascriptInterface
-        public void openFile(final String filePath) {
-            try {
-                File file = new File(filePath);
-                if (!file.exists()) {
-                    runOnUiThread(() -> Toast.makeText(activity, "Dosya bulunamadı", Toast.LENGTH_SHORT).show());
-                    return;
-                }
-                String mimeType = filePath.endsWith(".mp4") || filePath.endsWith(".mkv") ? "video/*" : "audio/*";
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    Uri uri = androidx.core.content.FileProvider.getUriForFile(
-                        activity, activity.getPackageName() + ".provider", file);
-                    intent.setDataAndType(uri, mimeType);
-                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                } else {
-                    intent.setDataAndType(Uri.fromFile(file), mimeType);
-                }
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                activity.startActivity(Intent.createChooser(intent, "Aç"));
-            } catch (Exception e) {
-                runOnUiThread(() -> Toast.makeText(activity, "Açılamadı: " + e.getMessage(), Toast.LENGTH_SHORT).show());
-            }
-        }
-
-        // Arka plan oynatma kontrolü
-        @JavascriptInterface
-        public void setBgPlay(boolean enabled) {
-            if (mediaServiceBound && mediaService != null) {
-                // MediaService'e ilet (ileride implemente edilebilir)
-            }
-        }
-
-        // İndirilenler klasörünü aç
+        // Klasör açma komutu (HTML'deki Dosyada Göster butonu için)
         @JavascriptInterface
         public void openDownloadsFolder() {
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            Uri uri = Uri.parse(Environment.getExternalStoragePublicDirectory(
-                Environment.DIRECTORY_DOWNLOADS).toURI().toString());
-            intent.setDataAndType(uri, "resource/folder");
+            Uri uri = Uri.parse(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toURI().toString());
+            intent.setDataAndType(uri, "*/*");
             try {
-                startActivity(intent);
+                activity.startActivity(intent);
             } catch (Exception e) {
-                runOnUiThread(() ->
-                    Toast.makeText(activity, "Dosya yöneticisi bulunamadı", Toast.LENGTH_SHORT).show());
+                runOnUiThread(() -> Toast.makeText(activity, "Dosya yöneticisi bulunamadı", Toast.LENGTH_SHORT).show());
             }
         }
 
-        // ── Yardımcı metotlar ──
         private String formatDuration(int seconds) {
-            if (seconds <= 0) return "";
-            int m = seconds / 60, s = seconds % 60;
-            return m + ":" + String.format(java.util.Locale.US, "%02d", s);
+            int m = seconds / 60;
+            int s = seconds % 60;
+            return m + ":" + (s < 10 ? "0" : "") + s;
         }
 
         private String formatViews(long views) {
-            if (views >= 1_000_000) return String.format(java.util.Locale.US, "%.1fM", views / 1_000_000.0);
-            if (views >= 1_000)     return String.format(java.util.Locale.US, "%.1fK", views / 1_000.0);
+            if (views >= 1000000) return (views / 1000000) + "M";
+            if (views >= 1000) return (views / 1000) + "B";
             return String.valueOf(views);
         }
     }
