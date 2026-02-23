@@ -396,7 +396,29 @@ body{
 .drag-handle { width:40px; height:4px; background:var(--gray2); border-radius:2px; margin:-8px auto 16px auto; display:none; }
 .player-panel.fullscreen .drag-handle { display:block; }
 
-.player-close{position:absolute;top:10px;right:12px;background:none;border:none;cursor:pointer;color:var(--gray);font-size:18px;transition:color 0.15s;}
+/* Player indirme butonu animasyonları */
+#playerDlBtn { animation: none; }
+#playerDlBtn:active { transform: scale(0.88); }
+#playerDlBtn.downloading {
+  animation: dlPulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 18px var(--red-glow), 0 0 6px rgba(255,255,255,0.2);
+}
+#playerDlBtn.done-dl {
+  background: linear-gradient(135deg, #00c853, #007a32) !important;
+  box-shadow: 0 2px 12px rgba(0,200,83,0.5) !important;
+  animation: dlDone 0.4s ease;
+}
+@keyframes dlPulse {
+  0%,100% { box-shadow: 0 2px 10px var(--red-glow); }
+  50%      { box-shadow: 0 0 22px var(--red-glow), 0 0 40px rgba(229,9,20,0.3); }
+}
+@keyframes dlDone {
+  0%   { transform: scale(1.3); }
+  60%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+.player-close{background:none;border:none;cursor:pointer;color:var(--gray);font-size:16px;transition:color 0.15s;}
 .player-close:active{color:var(--accent);}
 
 .player-now{display:flex;gap:12px;align-items:center;margin-bottom:14px;transition:var(--tr);}
@@ -723,8 +745,28 @@ body{
 
 <div class="player-panel" id="playerPanel">
   <div class="drag-handle"></div>
-  <button class="player-close" onclick="togglePlayer()">✕</button>
 
+  <!-- Üst bar: sadece çalma listesine ekle + kapat -->
+  <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:10px;">
+    <button onclick="if(currentMedia)showAddToPlaylistMenu({title:currentMedia.title||currentMedia.t||'',ytId:currentMedia.ytId||currentMedia.id||'',thumb:currentMedia.thumb||'',channel:currentMedia.channel||currentMedia.a||'',type:currentMedia.mediaType||'song'});else showToast('Önce bir şarkı seç');" title="Çalma Listesine Ekle"
+      style="width:32px;height:32px;border-radius:8px;border:1px solid var(--gray2);background:none;
+             cursor:pointer;color:var(--gray);display:flex;align-items:center;
+             justify-content:center;transition:all 0.2s;"
+      onmousedown="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+      onmouseup="this.style.borderColor='';this.style.color=''">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        <rect x="3" y="3" width="7" height="5" rx="1" fill="currentColor" stroke="none" opacity="0.5"/>
+        <rect x="14" y="3" width="7" height="5" rx="1" fill="currentColor" stroke="none" opacity="0.5"/>
+        <rect x="3" y="16" width="7" height="5" rx="1" fill="currentColor" stroke="none" opacity="0.5"/>
+      </svg>
+    </button>
+    <button class="player-close" onclick="togglePlayer()"
+      style="position:static;width:32px;height:32px;border-radius:8px;border:1px solid var(--gray2);
+             display:flex;align-items:center;justify-content:center;font-size:15px;">✕</button>
+  </div>
+
+  <!-- Albüm + bilgi -->
   <div class="player-now">
     <div class="player-art-wrap" id="playerArtWrap">
       <img id="playerArtImg" src="" style="display:none;">
@@ -733,24 +775,9 @@ body{
       <div class="player-title" id="playerTitle">Bir şarkı seç</div>
       <div class="player-artist" id="playerArtist">YT-PRO PLAYER</div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:6px;align-items:center;flex-shrink:0;margin-left:6px;">
-      <button id="playerFavBtn" onclick="addCurrentToFavorites()" title="Favorilere Ekle"
-        style="width:36px;height:36px;border-radius:50%;border:1px solid var(--gray2);background:none;cursor:pointer;
-               color:var(--gray);font-size:20px;display:flex;align-items:center;justify-content:center;
-               transition:all 0.2s;line-height:1;">♡</button>
-      <button id="playerDlBtn" onclick="downloadCurrentMedia(this)" title="İndir"
-        style="width:36px;height:36px;border-radius:50%;border:1px solid var(--gray2);background:none;cursor:pointer;
-               color:var(--gray);display:flex;align-items:center;justify-content:center;
-               transition:all 0.2s;position:relative;overflow:hidden;">
-        <svg viewBox="0 0 24 24" fill="currentColor" class="dl-icon" width="16" height="16"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-        <svg viewBox="0 0 24 24" fill="currentColor" class="dl-done-icon" width="16" height="16" style="display:none"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-        <div class="dl-progress-ring" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;">
-          <svg viewBox="0 0 28 28" width="28" height="28"><circle class="ring-bg" cx="14" cy="14" r="11" fill="none" stroke-width="2.5"/><circle class="ring-fill" cx="14" cy="14" r="11" fill="none" stroke-width="2.5" stroke-dasharray="69.1" stroke-dashoffset="69.1"/></svg>
-        </div>
-      </button>
-    </div>
   </div>
-  
+
+  <!-- Progress bar -->
   <div style="margin-bottom:6px;">
     <div class="slider-wrap" id="progSlider" style="margin-bottom:4px;">
       <div class="slider-track"><div class="slider-fill" id="progFill" style="width:0%"></div></div>
@@ -761,25 +788,57 @@ body{
       <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--gray);" id="totTime">0:00</span>
     </div>
   </div>
-  
-  <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px;">
+
+  <!-- Kontrol butonları: ♡ | shuffle | prev | play | next | repeat | ⬇ -->
+  <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
+
+    <!-- FAVORİ - Shuffle'ın solu -->
+    <button id="playerFavBtn" onclick="addCurrentToFavorites()" title="Favorilere Ekle"
+      style="width:34px;height:34px;border-radius:50%;border:1px solid var(--gray2);background:none;
+             cursor:pointer;color:var(--gray);display:flex;align-items:center;
+             justify-content:center;transition:all 0.25s;flex-shrink:0;">
+      <svg id="playerFavIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" width="18" height="18">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+      </svg>
+    </button>
+
     <button class="ctrl-btn" id="shuffleBtn" onclick="toggleShuffle()" title="Karıştır">
       <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>
     </button>
+
     <button class="ctrl-btn" onclick="prevTrack()" title="Önceki">
       <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
     </button>
+
     <button class="play-main" id="playMain" onclick="togglePlay()">
       <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z" fill="white"/></svg>
     </button>
+
     <button class="ctrl-btn" onclick="nextTrack()" title="Sonraki">
       <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
     </button>
+
     <button class="ctrl-btn" id="repeatBtn" onclick="cycleRepeat()" title="Tekrar">
       <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" id="repeatIcon"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
     </button>
+
+    <!-- İNDİRME - Repeat'in sağı, renkli + animasyonlu -->
+    <button id="playerDlBtn" onclick="downloadCurrentMedia(this)" title="İndir"
+      style="width:36px;height:36px;border-radius:10px;
+             border:none;background:linear-gradient(135deg,var(--accent),#a00010);
+             cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;
+             transition:all 0.25s;position:relative;overflow:hidden;flex-shrink:0;
+             box-shadow:0 2px 10px var(--red-glow);">
+      <svg viewBox="0 0 24 24" fill="white" class="dl-icon" width="16" height="16"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+      <svg viewBox="0 0 24 24" fill="white" class="dl-done-icon" width="16" height="16" style="display:none"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+      <div class="dl-progress-ring" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--accent),#a00010);">
+        <svg viewBox="0 0 28 28" width="28" height="28"><circle class="ring-bg" cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.5"/><circle class="ring-fill" cx="14" cy="14" r="11" fill="none" stroke="white" stroke-width="2.5" stroke-dasharray="69.1" stroke-dashoffset="69.1"/></svg>
+      </div>
+    </button>
+
   </div>
-  
+
+  <!-- Ses seviyesi -->
   <div style="display:flex;align-items:center;gap:8px;">
     <button onclick="toggleMute()" style="background:none;border:none;cursor:pointer;padding:2px;" id="muteBtn">
       <svg viewBox="0 0 24 24" fill="var(--gray)" width="16" height="16" id="volIcon"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
@@ -1219,7 +1278,13 @@ function playMedia(type, idx) {
 
   // Kalp ve indirme butonunu sıfırla
   const favBtn = document.getElementById('playerFavBtn');
-  if (favBtn) { favBtn.textContent = '♡'; favBtn.style.color = ''; favBtn.style.borderColor = ''; }
+  const favIcon = document.getElementById('playerFavIcon');
+  if (favBtn && favIcon) {
+    favIcon.setAttribute('fill', 'none');
+    favIcon.setAttribute('stroke', 'currentColor');
+    favBtn.style.borderColor = '';
+    favBtn.style.background = '';
+  }
   const dlBtn = document.getElementById('playerDlBtn');
   if (dlBtn) { dlBtn.classList.remove('downloading','done-dl'); const ri = dlBtn.querySelector('.ring-fill'); if(ri) ri.style.strokeDashoffset='69.1'; dlBtn.querySelector('.dl-done-icon').style.display='none'; dlBtn.querySelector('.dl-icon').style.display=''; dlBtn.querySelector('.dl-progress-ring').style.display='none'; }
 }
@@ -1300,38 +1365,100 @@ function confirmUrlDownload(){
   document.getElementById('urlInput').value='';
 }
 
+// tid -> buton elemanı eşlemesi (Java'dan gelen callback'ler için)
+const dlBtnMap = {};
+
 function startRealDl(title, url, ytId, type, quality) {
-  const tid = 'dl_'+Date.now();
-  const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '';
-  downloads[tid] = {title, type:(type==='audio'?'🎵 ':'📹 ')+quality.toUpperCase(), pct:0, speed:'...', thumbUrl};
-  updateDlBadge(); renderDlPage();
-  showToast('⬇ İndiriliyor...');
-  if(typeof YTPROAndroid !== 'undefined'){
-    YTPROAndroid.startDownload(url, quality, type, title);
-  }
+  startDlWithProgress(title, url, ytId, type, quality, null);
 }
 
 // ══ İNDİRME PROGRESS ANİMASYONU ══
 function startDlWithProgress(title, url, ytId, type, quality, btn) {
-  if (btn.classList.contains('downloading') || btn.classList.contains('done-dl')) return;
-  btn.classList.add('downloading');
-  // Ring'i bul
-  const ringFill = btn.querySelector('.ring-fill');
-  const circumference = 69.1;
-  let pct = 0;
-  const interval = setInterval(() => {
-    pct += Math.random() * 8 + 2;
-    if (pct >= 100) { pct = 100; clearInterval(interval); }
-    const offset = circumference - (pct / 100) * circumference;
-    if (ringFill) ringFill.style.strokeDashoffset = offset;
-    if (pct >= 100) {
-      setTimeout(() => {
-        btn.classList.remove('downloading');
-        btn.classList.add('done-dl');
-      }, 300);
+  if (btn && (btn.classList.contains('downloading') || btn.classList.contains('done-dl'))) return;
+  const tid = 'dl_' + Date.now();
+  const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : '';
+  downloads[tid] = {title, type:(type==='audio'?'🎵 ':'📹 ')+quality.toUpperCase(), pct:0, speed:'...', thumbUrl};
+  updateDlBadge(); renderDlPage();
+
+  // Butonu downloading moduna al
+  if (btn) {
+    dlBtnMap[tid] = btn;
+    btn.classList.add('downloading');
+    const ring = btn.querySelector('.dl-progress-ring');
+    if (ring) ring.style.display = 'flex';
+  }
+
+  showToast('⬇ İndiriliyor...');
+  if (typeof YTPROAndroid !== 'undefined') {
+    YTPROAndroid.startDownload(url, quality, type, title, tid);
+  }
+}
+
+// Java'dan çağrılır - her % güncellemesinde
+function updateDownloadProgress(tid, pct, speed) {
+  if (downloads[tid]) {
+    downloads[tid].pct = pct;
+    downloads[tid].speed = speed;
+    renderDlPage();
+  }
+  // İlgili butondaki ring'i güncelle
+  const btn = dlBtnMap[tid];
+  if (btn) {
+    const ringFill = btn.querySelector('.ring-fill');
+    if (ringFill) {
+      const offset = 69.1 - (pct / 100) * 69.1;
+      ringFill.style.strokeDashoffset = offset;
     }
-  }, 400);
-  startRealDl(title, url, ytId, type, quality);
+  }
+}
+
+// Java'dan çağrılır - indirme tamamlandığında
+function downloadComplete(tid, filePath) {
+  if (downloads[tid]) {
+    downloads[tid].pct = 100;
+    downloads[tid].speed = '';
+    renderDlPage();
+  }
+  showToast('✔ İndirme tamamlandı!');
+  const btn = dlBtnMap[tid];
+  if (btn) {
+    btn.classList.remove('downloading');
+    btn.classList.add('done-dl');
+    const ring = btn.querySelector('.dl-progress-ring');
+    if (ring) ring.style.display = 'none';
+    const dlIcon = btn.querySelector('.dl-icon');
+    if (dlIcon) dlIcon.style.display = 'none';
+    const doneIcon = btn.querySelector('.dl-done-icon');
+    if (doneIcon) doneIcon.style.display = '';
+    // 3 saniye sonra tekrar indirilebilir hale getir
+    setTimeout(() => {
+      btn.classList.remove('done-dl');
+      if (dlIcon) dlIcon.style.display = '';
+      if (doneIcon) doneIcon.style.display = 'none';
+    }, 3000);
+    delete dlBtnMap[tid];
+  }
+}
+
+// Java'dan çağrılır - hata durumunda
+function downloadError(tid, msg) {
+  if (downloads[tid]) {
+    downloads[tid].pct = -1;
+    downloads[tid].speed = msg || 'Hata';
+    renderDlPage();
+  }
+  showToast('✗ İndirme başarısız: ' + (msg || ''));
+  const btn = dlBtnMap[tid];
+  if (btn) {
+    btn.classList.remove('downloading');
+    btn.style.borderColor = '#ff5555';
+    btn.style.color = '#ff5555';
+    const ring = btn.querySelector('.dl-progress-ring');
+    if (ring) ring.style.display = 'none';
+    const dlIcon = btn.querySelector('.dl-icon');
+    if (dlIcon) dlIcon.style.display = '';
+    delete dlBtnMap[tid];
+  }
 }
 
 // ══ PLAYER KALP & İNDİRME BUTONLARI ══
@@ -1346,7 +1473,13 @@ function addCurrentToFavorites() {
   };
   addToPlaylist('favoriler', item);
   const btn = document.getElementById('playerFavBtn');
-  if (btn) { btn.textContent = '♥'; btn.style.color = 'var(--accent)'; btn.style.borderColor = 'var(--accent)'; }
+  const icon = document.getElementById('playerFavIcon');
+  if (btn && icon) {
+    icon.setAttribute('fill', 'var(--accent)');
+    icon.setAttribute('stroke', 'var(--accent)');
+    btn.style.borderColor = 'var(--accent)';
+    btn.style.background = 'rgba(229,9,20,0.12)';
+  }
 }
 
 function downloadCurrentMedia(btn) {
