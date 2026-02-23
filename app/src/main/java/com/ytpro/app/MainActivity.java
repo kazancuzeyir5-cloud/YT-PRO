@@ -134,6 +134,9 @@ public class MainActivity extends AppCompatActivity {
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setBuiltInZoomControls(false);
+        // Yerel dosyalara WebView erişimi (indirilen medyaları oynatmak için)
+        s.setAllowFileAccessFromFileURLs(true);
+        s.setAllowUniversalAccessFromFileURLs(true);
         webView.addJavascriptInterface(new YTPROBridge(this), "YTPROAndroid");
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
@@ -360,9 +363,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
-        public void updateMediaSession(String title, String artist, String action) {
+        public void updateMediaSession(String title, String artist, String action, String thumbUrl) {
             if (mediaServiceBound && mediaService != null) {
-                mediaService.updateSession(title, artist, action, "");
+                mediaService.updateSession(title, artist, action, thumbUrl != null ? thumbUrl : "");
             }
         }
 
